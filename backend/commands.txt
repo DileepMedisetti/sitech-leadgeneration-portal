@@ -1,0 +1,15 @@
+===creating virtual environment===
+py -m venv venv
+===activate environment
+venv/scripts/activate
+
+===alembic migrations===
+pip install alembic
+===initiate the alembic
+alembic init alembic
+===create migration
+alembic revision --autogenerate -m "create initial database tables"
+===apply the migration
+alembic upgrade head
+===check current applied migration
+alembic current
