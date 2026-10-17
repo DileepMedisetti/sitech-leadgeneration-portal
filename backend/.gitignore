@@ -1,72 +1,134 @@
-# Environment variables and secrets
+
+# ==================================================
+# ENVIRONMENT VARIABLES AND SECRETS
+# ==================================================
 .env
 .env.*
 !.env.example
 !.env.sample
 
-# Python bytecode and cache
+# ==================================================
+# PYTHON BYTECODE AND CACHE
+# ==================================================
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtual environments
+# ==================================================
+# PYTHON VIRTUAL ENVIRONMENTS
+# ==================================================
 .venv/
 venv/
 env/
 ENV/
 
-# Packaging and build artifacts
+# ==================================================
+# PYTHON PACKAGING AND BUILD ARTIFACTS
+# ==================================================
 build/
 dist/
 *.egg-info/
 .eggs/
 wheels/
+pip-wheel-metadata/
 
-# Test and coverage artifacts
+# ==================================================
+# TESTING AND COVERAGE
+# ==================================================
 .pytest_cache/
 .coverage
 .coverage.*
 htmlcov/
 .tox/
 .nox/
+test-results/
+junit.xml
 
-# Type-checker and linter caches
+# ==================================================
+# TYPE CHECKERS AND LINTER CACHES
+# ==================================================
 .mypy_cache/
 .pyright/
 .ruff_cache/
 .dmypy.json
 dmypy.json
 
-# Logs and temporary files
+# ==================================================
+# LOGS AND TEMPORARY FILES
+# ==================================================
 *.log
 logs/
 tmp/
 temp/
 *.tmp
 
-# Local databases and database exports
+# ==================================================
+# LOCAL DATABASES AND BACKUPS
+# ==================================================
 *.db
 *.sqlite
 *.sqlite3
-*.sql
+*.bak
 
-# IDE and editor files
+# Do not ignore *.sql globally.
+# Keep intentional SQL scripts and migrations version-controlled.
+
+# ==================================================
+# FRONTEND DEPENDENCIES
+# ==================================================
+node_modules/
+
+# ==================================================
+# FRONTEND BUILD OUTPUT
+# ==================================================
+dist/
+.vite/
+coverage/
+
+# ==================================================
+# ENVIRONMENT-SPECIFIC FRONTEND FILES
+# ==================================================
+.env.local
+.env.*.local
+
+# ==================================================
+# GENERATED REPORTS AND EXPORTS
+# Uncomment if these files should not be version-controlled.
+# ==================================================
+# reports/
+# exports/
+# *.xlsx
+# *.csv
+
+# ==================================================
+# IDE AND EDITOR FILES
+# ==================================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Operating system files
+# ==================================================
+# OPERATING SYSTEM FILES
+# ==================================================
 .DS_Store
 Thumbs.db
 Desktop.ini
 
-# Local secrets, certificates, and keys
+# ==================================================
+# LOCAL SECRETS, CERTIFICATES, AND PRIVATE KEYS
+# ==================================================
 *.pem
 *.key
 *.crt
+*.p12
+*.pfx
 
-# Generated reports and exports (uncomment if these should be versioned)
-# reports/
-# exports/
+# ==================================================
+# ENVIRONMENT AND TOOL-SPECIFIC FILES
+# ==================================================
+.python-version
+.DS_Store?
+*.orig
+*.rej
