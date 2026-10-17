@@ -7,10 +7,9 @@ import {
   Search,
   Zap,
   TrendingUp,
-  AlertTriangle,
   ArrowRight,
-  ExternalLink,
 } from 'lucide-react';
+
 import { dashboardApi } from '../../services/api-client';
 import MetricCard from '../../components/ui/MetricCard';
 import StatusBadge from '../../components/ui/StatusBadge';

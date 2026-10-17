@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect, useId } from 'react';
-import { Search, ChevronDown, X, Check, Globe } from 'lucide-react';
+import { ChevronDown, X, Check, Globe } from 'lucide-react';
 import { COUNTRIES } from '../../data/countries';
 
 export default function CountrySelect({
   value,
   onChange,
-  required = false,
+  required: _required = false,
   disabled = false,
   id,
 }) {
+
   const generatedId = useId();
   const inputId = id || `country-select-${generatedId}`;
 

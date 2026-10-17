@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { PlusCircle, Search, ExternalLink, RefreshCw } from 'lucide-react';
+import { PlusCircle, ExternalLink } from 'lucide-react';
 import { searchJobsApi } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Pagination from '../../components/ui/Pagination';

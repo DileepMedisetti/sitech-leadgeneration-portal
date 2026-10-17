@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Compass, Sparkles, Shield, Play, ExternalLink, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Compass, Shield, Play, CheckCircle2, ArrowRight } from 'lucide-react';
 import { searchJobsApi } from '../../services/api-client';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 

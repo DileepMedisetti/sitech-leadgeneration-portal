@@ -1,173 +1,320 @@
+import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+// Resolve base URL from Vite environment variable; default to relative path in development for proxy
+const rawBase = import.meta.env.VITE_API_BASE_URL || '';
+export const API_BASE = rawBase.replace(/\/+$/, '');
 
-async function request(endpoint, options = {}) {
-  const url = `${API_BASE}${endpoint}`;
-  const config = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  };
+// Centralized Axios client instance
+export const apiClient = axios.create({
+  baseURL: API_BASE,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+});
 
-  try {
-    const res = await fetch(url, config);
-
-    if (!res.ok) {
-      let errorDetail = `HTTP ${res.status}: ${res.statusText}`;
-      try {
-        const errorJson = await res.json();
-        if (errorJson.detail) {
-          errorDetail = typeof errorJson.detail === 'string'
-            ? errorJson.detail
-            : JSON.stringify(errorJson.detail);
-        }
-      } catch {
-        // Fallback to status text
+// Request Interceptor: Attach authentication token if present in browser storage
+apiClient.interceptors.request.use(
+  (config) => {
+    try {
+      const token =
+        localStorage.getItem('sitech_token') ||
+        sessionStorage.getItem('sitech_token');
+      if (token && !config.headers.Authorization) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
-      throw new Error(errorDetail);
+    } catch {
+      // Storage access blocked or unavailable
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response Interceptor: Standardize error formats (FastAPI 422 arrays, string details, network timeouts)
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
     }
 
-    // For file downloads / text
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('text/csv')) {
-      return await res.text();
+    let message = 'An unexpected network error occurred.';
+
+    if (error.response) {
+      const { status, data } = error.response;
+      if (data && data.detail) {
+        if (typeof data.detail === 'string') {
+          message = data.detail;
+        } else if (Array.isArray(data.detail)) {
+          // FastAPI 422 Unprocessable Content schema validation errors
+          message = data.detail
+            .map((item) => {
+              const field = item.loc ? item.loc.slice(1).join('.') : '';
+              return field ? `${field}: ${item.msg}` : item.msg;
+            })
+            .join(' | ');
+        } else {
+          message = JSON.stringify(data.detail);
+        }
+      } else if (data && data.message) {
+        message = data.message;
+      } else {
+        message = `Request failed (${status}: ${error.response.statusText || 'Error'})`;
+      }
+      error.message = message;
+      error.status = status;
+    } else if (error.request) {
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        message = 'Request timed out after 30 seconds. Please verify your backend server.';
+      } else {
+        message = `Unable to reach the backend service at ${API_BASE || 'localhost:8000'}. Ensure the FastAPI server is running.`;
+      }
+      error.message = message;
     }
 
-    return await res.json();
-  } catch (err) {
-    console.error(`API Error [${endpoint}]:`, err);
-    throw err;
+    console.error(`[API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`, message);
+    return Promise.reject(error);
   }
+);
+
+// Helper for triggering browser file downloads from Blob data
+function triggerBlobDownload(blobData, defaultFilename, response) {
+  let filename = defaultFilename;
+  const disposition = response?.headers?.['content-disposition'];
+  if (disposition && disposition.includes('filename=')) {
+    const match = disposition.match(/filename=["']?([^"';]+)["']?/);
+    if (match && match[1]) {
+      filename = match[1];
+    }
+  }
+
+  const blob = new Blob([blobData], {
+    type: response?.headers?.['content-type'] || 'application/octet-stream',
+  });
+  const blobUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(blobUrl);
+  return filename;
 }
 
+// ==============================================================================
+// Dashboard API
+// ==============================================================================
 export const dashboardApi = {
-  getStats: () => request('/api/dashboard/stats'),
+  getStats: (options = {}) =>
+    apiClient.get('/api/dashboard/stats', options).then((res) => res.data),
 };
 
+// ==============================================================================
+// Search Jobs API
+// ==============================================================================
 export const searchJobsApi = {
-  list: (params = {}) => {
-    const qs = new URLSearchParams();
-    if (params.page) qs.set('page', params.page);
-    if (params.page_size) qs.set('page_size', params.page_size);
-    if (params.status) qs.set('status', params.status);
-    return request(`/api/search-jobs?${qs.toString()}`);
-  },
-  create: (data) =>
-    request('/api/search-jobs', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  get: (id) => request(`/api/search-jobs/${id}`),
-  start: (id) =>
-    request(`/api/search-jobs/${id}/start`, {
-      method: 'POST',
-    }),
-  run: (id) =>
-    request(`/api/search-jobs/${id}/run`, {
-      method: 'POST',
-    }),
-  stop: (id) =>
-    request(`/api/search-jobs/${id}/stop`, {
-      method: 'POST',
-    }),
-  resume: (id) =>
-    request(`/api/search-jobs/${id}/resume`, {
-      method: 'POST',
-    }),
-  getResults: (id, params = {}) => {
-    const qs = new URLSearchParams();
-    if (params.page) qs.set('page', params.page);
-    if (params.page_size) qs.set('page_size', params.page_size);
-    if (params.status) qs.set('status', params.status);
-    return request(`/api/search-jobs/${id}/results?${qs.toString()}`);
-  },
-  getLeads: (id, params = {}) => {
-    const qs = new URLSearchParams();
-    if (params.page) qs.set('page', params.page);
-    if (params.page_size) qs.set('page_size', params.page_size);
-    if (params.status) qs.set('status', params.status);
-    return request(`/api/search-jobs/${id}/leads?${qs.toString()}`);
-  },
-  collect: (id, queryOverride = null) => {
-    const qs = queryOverride ? `?query_override=${encodeURIComponent(queryOverride)}` : '';
-    return request(`/api/search-jobs/${id}/collect${qs}`, {
-      method: 'POST',
-    });
-  },
-  extractLeads: (id, limit = 10) =>
-    request(`/api/search-jobs/${id}/extract-leads?limit=${limit}`, {
-      method: 'POST',
-    }),
-  retryFailed: (id, limit = 10) =>
-    request(`/api/search-jobs/${id}/retry-failed?limit=${limit}`, {
-      method: 'POST',
-    }),
+  list: (params = {}, options = {}) =>
+    apiClient
+      .get('/api/search-jobs', {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+          status: params.status || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  create: (data, options = {}) =>
+    apiClient.post('/api/search-jobs', data, options).then((res) => res.data),
+
+  get: (id, options = {}) =>
+    apiClient.get(`/api/search-jobs/${id}`, options).then((res) => res.data),
+
+  start: (id, options = {}) =>
+    apiClient.post(`/api/search-jobs/${id}/start`, null, options).then((res) => res.data),
+
+  run: (id, options = {}) =>
+    apiClient.post(`/api/search-jobs/${id}/run`, null, options).then((res) => res.data),
+
+  stop: (id, options = {}) =>
+    apiClient.post(`/api/search-jobs/${id}/stop`, null, options).then((res) => res.data),
+
+  resume: (id, options = {}) =>
+    apiClient.post(`/api/search-jobs/${id}/resume`, null, options).then((res) => res.data),
+
+  getResults: (id, params = {}, options = {}) =>
+    apiClient
+      .get(`/api/search-jobs/${id}/results`, {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+          status: params.status || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  getLeads: (id, params = {}, options = {}) =>
+    apiClient
+      .get(`/api/search-jobs/${id}/leads`, {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+          status: params.status || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  collect: (id, queryOverride = null, options = {}) =>
+    apiClient
+      .post(`/api/search-jobs/${id}/collect`, null, {
+        params: queryOverride ? { query_override: queryOverride } : {},
+        ...options,
+      })
+      .then((res) => res.data),
+
+  extractLeads: (id, limit = 10, options = {}) =>
+    apiClient
+      .post(`/api/search-jobs/${id}/extract-leads`, null, {
+        params: { limit },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  retryFailed: (id, limit = 10, options = {}) =>
+    apiClient
+      .post(`/api/search-jobs/${id}/retry-failed`, null, {
+        params: { limit },
+        ...options,
+      })
+      .then((res) => res.data),
 };
 
+// ==============================================================================
+// Leads API
+// ==============================================================================
 export const leadsApi = {
-  list: (params = {}) => {
-    const qs = new URLSearchParams();
-    if (params.page) qs.set('page', params.page);
-    if (params.page_size) qs.set('page_size', params.page_size);
-    if (params.search) qs.set('search', params.search);
-    if (params.status) qs.set('status', params.status);
-    if (params.country) qs.set('country', params.country);
-    if (params.university) qs.set('university', params.university);
-    if (params.profession) qs.set('profession', params.profession);
-    if (params.job_id) qs.set('job_id', params.job_id);
-    return request(`/api/leads?${qs.toString()}`);
+  list: (params = {}, options = {}) =>
+    apiClient
+      .get('/api/leads', {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+          search: params.search || undefined,
+          status: params.status || undefined,
+          country: params.country || undefined,
+          university: params.university || undefined,
+          profession: params.profession || undefined,
+          job_id: params.job_id || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  get: (id, options = {}) =>
+    apiClient.get(`/api/leads/${id}`, options).then((res) => res.data),
+
+  update: (id, data, options = {}) =>
+    apiClient.patch(`/api/leads/${id}`, data, options).then((res) => res.data),
+
+  audit: (options = {}) =>
+    apiClient.post('/api/leads/audit', null, options).then((res) => res.data),
+
+  // Axios blob download for Excel (.xlsx) export
+  downloadXlsx: async (status = 'qualified', jobId = null, options = {}) => {
+    const res = await apiClient.get('/api/leads/export-xlsx', {
+      params: {
+        status: status || undefined,
+        job_id: jobId || undefined,
+      },
+      responseType: 'blob',
+      ...options,
+    });
+    return triggerBlobDownload(
+      res.data,
+      `sitech_leads_${status || 'all'}.xlsx`,
+      res
+    );
   },
-  get: (id) => request(`/api/leads/${id}`),
-  update: (id, data) =>
-    request(`/api/leads/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
+
+  // Axios blob download for CSV export
+  downloadCsv: async (status = 'qualified', jobId = null, options = {}) => {
+    const res = await apiClient.get('/api/leads/export', {
+      params: {
+        status: status || undefined,
+        job_id: jobId || undefined,
+      },
+      responseType: 'blob',
+      ...options,
+    });
+    return triggerBlobDownload(
+      res.data,
+      `sitech_leads_${status || 'all'}.csv`,
+      res
+    );
+  },
+
+  // Preserved for fallback URL reference
   exportUrl: (status = 'qualified', jobId = null) => {
     const qs = new URLSearchParams();
     if (status) qs.set('status', status);
     if (jobId) qs.set('job_id', jobId);
     return `${API_BASE}/api/leads/export?${qs.toString()}`;
   },
+
   exportXlsxUrl: (status = 'qualified', jobId = null) => {
     const qs = new URLSearchParams();
     if (status) qs.set('status', status);
     if (jobId) qs.set('job_id', jobId);
     return `${API_BASE}/api/leads/export-xlsx?${qs.toString()}`;
   },
-  audit: () =>
-    request('/api/leads/audit', {
-      method: 'POST',
-    }),
 };
 
+// ==============================================================================
+// Review Queue API
+// ==============================================================================
 export const reviewQueueApi = {
-  list: (params = {}) => {
-    const qs = new URLSearchParams();
-    if (params.page) qs.set('page', params.page);
-    if (params.page_size) qs.set('page_size', params.page_size);
-    if (params.search) qs.set('search', params.search);
-    if (params.job_id) qs.set('job_id', params.job_id);
-    return request(`/api/review-queue?${qs.toString()}`);
-  },
-  approve: (id, reason = null) =>
-    request(`/api/review-queue/${id}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    }),
-  reject: (id, reason = null) =>
-    request(`/api/review-queue/${id}/reject`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    }),
+  list: (params = {}, options = {}) =>
+    apiClient
+      .get('/api/review-queue', {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+          search: params.search || undefined,
+          job_id: params.job_id || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  approve: (id, reason = null, options = {}) =>
+    apiClient
+      .post(`/api/review-queue/${id}/approve`, { reason }, options)
+      .then((res) => res.data),
+
+  reject: (id, reason = null, options = {}) =>
+    apiClient
+      .post(`/api/review-queue/${id}/reject`, { reason }, options)
+      .then((res) => res.data),
 };
 
+// ==============================================================================
+// Analytics API
+// ==============================================================================
 export const analyticsApi = {
-  get: () => request('/api/analytics'),
+  get: (options = {}) =>
+    apiClient.get('/api/analytics', options).then((res) => res.data),
 };
 
+// ==============================================================================
+// Settings API
+// ==============================================================================
 export const settingsApi = {
-  get: () => request('/api/settings'),
+  get: (options = {}) =>
+    apiClient.get('/api/settings', options).then((res) => res.data),
 };

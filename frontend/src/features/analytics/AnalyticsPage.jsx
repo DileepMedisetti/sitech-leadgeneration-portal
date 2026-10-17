@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { BarChart2, Globe, Building, Zap, PieChart, ShieldCheck } from 'lucide-react';
+import { BarChart2, Globe, Building, Zap, PieChart } from 'lucide-react';
 import { analyticsApi } from '../../services/api-client';
 import MetricCard from '../../components/ui/MetricCard';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';

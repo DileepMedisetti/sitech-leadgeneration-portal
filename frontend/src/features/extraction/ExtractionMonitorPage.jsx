@@ -1,11 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
-import { Cpu, RefreshCw, AlertTriangle, CheckCircle, ShieldCheck, Play, ExternalLink } from 'lucide-react';
+import { Cpu, RefreshCw, ShieldCheck, Play, ExternalLink } from 'lucide-react';
 import { searchJobsApi } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
-export default function ExtractionMonitorPage({ onNavigate }) {
+export default function ExtractionMonitorPage({ onNavigate: _onNavigate }) {
   const [jobs, setJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState('');
   const [selectedJob, setSelectedJob] = useState(null);
@@ -15,6 +15,17 @@ export default function ExtractionMonitorPage({ onNavigate }) {
   const [retrying, setRetrying] = useState(false);
   const [banner, setBanner] = useState(null);
   const [results, setResults] = useState([]);
+
+  const loadJobDetails = async (jobId) => {
+    try {
+      const data = await searchJobsApi.get(jobId);
+      setSelectedJob(data);
+      const res = await searchJobsApi.getResults(jobId, { page_size: 20 });
+      setResults(res.items);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -35,16 +46,6 @@ export default function ExtractionMonitorPage({ onNavigate }) {
     fetchJobs();
   }, []);
 
-  const loadJobDetails = async (jobId) => {
-    try {
-      const data = await searchJobsApi.get(jobId);
-      setSelectedJob(data);
-      const res = await searchJobsApi.getResults(jobId, { page_size: 20 });
-      setResults(res.items);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleSelectJob = (id) => {
     setSelectedJobId(id);

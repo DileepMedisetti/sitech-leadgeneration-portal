@@ -9,9 +9,9 @@ import {
   Play,
   Users,
   Compass,
-  AlertCircle,
   ExternalLink,
   CheckCircle,
+
   FileText,
   Zap,
   FileSpreadsheet,
@@ -37,10 +37,41 @@ export default function JobDetailPage({ jobId, onNavigate }) {
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [downloadingXlsx, setDownloadingXlsx] = useState(false);
+  const [downloadingCsv, setDownloadingCsv] = useState(false);
   const [bannerMessage, setBannerMessage] = useState(null);
   const [error, setError] = useState(null);
 
+  const handleExportXlsx = async () => {
+    try {
+      setDownloadingXlsx(true);
+      await leadsApi.downloadXlsx('qualified', jobId);
+    } catch (err) {
+      setBannerMessage({
+        type: 'danger',
+        text: `Excel export failed: ${err.message || 'Network error'}`,
+      });
+    } finally {
+      setDownloadingXlsx(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      setDownloadingCsv(true);
+      await leadsApi.downloadCsv('qualified', jobId);
+    } catch (err) {
+      setBannerMessage({
+        type: 'danger',
+        text: `CSV export failed: ${err.message || 'Network error'}`,
+      });
+    } finally {
+      setDownloadingCsv(false);
+    }
+  };
+
   const fetchJob = async () => {
+
     try {
       setError(null);
       const data = await searchJobsApi.get(jobId);
@@ -507,29 +538,28 @@ export default function JobDetailPage({ jobId, onNavigate }) {
               {leadsTotal} Verified Leads Discovered
             </span>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <a
-                href={leadsApi.exportXlsxUrl('qualified', jobId)}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                onClick={handleExportXlsx}
+                disabled={downloadingXlsx}
                 className="btn btn-primary btn-sm"
-                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 title="Download this job's verified leads as a styled Excel (.xlsx) file"
               >
-                <FileSpreadsheet size={13} />
-                Download Excel (.xlsx)
-              </a>
-              <a
-                href={leadsApi.exportUrl('qualified', jobId)}
-                target="_blank"
-                rel="noreferrer"
+                <FileSpreadsheet size={13} className={downloadingXlsx ? 'spin' : ''} />
+                {downloadingXlsx ? 'Exporting...' : 'Download Excel (.xlsx)'}
+              </button>
+              <button
+                onClick={handleExportCsv}
+                disabled={downloadingCsv}
                 className="btn btn-secondary btn-sm"
-                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 title="Download this job's verified leads as CSV"
               >
-                <Download size={13} />
-                CSV
-              </a>
+                <Download size={13} className={downloadingCsv ? 'spin' : ''} />
+                {downloadingCsv ? 'Exporting...' : 'CSV'}
+              </button>
             </div>
+
           </div>
           <div className="table-container" style={{ border: 'none' }}>
             <table className="data-table">

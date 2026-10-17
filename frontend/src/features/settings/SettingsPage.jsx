@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Settings, ShieldCheck, Database, Key, Server, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Settings, ShieldCheck, Database, Key, CheckCircle2, AlertCircle } from 'lucide-react';
 import { settingsApi } from '../../services/api-client';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 

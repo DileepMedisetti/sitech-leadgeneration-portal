@@ -8,8 +8,6 @@ import {
   AlertTriangle,
   RefreshCw,
   X,
-  Building,
-  GraduationCap,
   FileSpreadsheet,
 } from 'lucide-react';
 import { leadsApi } from '../../services/api-client';
@@ -20,7 +18,8 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import LeadDetailDrawer from './LeadDetailDrawer';
 import { COUNTRIES } from '../../data/countries';
 
-export default function LeadsPage({ initialLeadId, onNavigate }) {
+export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
+
   const [leads, setLeads] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -38,11 +37,44 @@ export default function LeadsPage({ initialLeadId, onNavigate }) {
   const [auditing, setAuditing] = useState(false);
   const [auditBanner, setAuditBanner] = useState(null);
 
+  // File download states (Axios blob)
+  const [downloadingXlsx, setDownloadingXlsx] = useState(false);
+  const [downloadingCsv, setDownloadingCsv] = useState(false);
+
+  const handleExportXlsx = async () => {
+    try {
+      setDownloadingXlsx(true);
+      await leadsApi.downloadXlsx(statusFilter || undefined);
+    } catch (err) {
+      setAuditBanner({
+        type: 'danger',
+        text: `Excel export failed: ${err.message || 'Network error'}`,
+      });
+    } finally {
+      setDownloadingXlsx(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      setDownloadingCsv(true);
+      await leadsApi.downloadCsv(statusFilter || undefined);
+    } catch (err) {
+      setAuditBanner({
+        type: 'danger',
+        text: `CSV export failed: ${err.message || 'Network error'}`,
+      });
+    } finally {
+      setDownloadingCsv(false);
+    }
+  };
+
   const fetchLeads = async () => {
     try {
       setLoading(true);
       setError(null);
       const res = await leadsApi.list({
+
         page,
         page_size: 15,
         search: search.trim() || undefined,
@@ -258,30 +290,29 @@ export default function LeadsPage({ initialLeadId, onNavigate }) {
             </button>
 
             {/* Export Excel (.xlsx) Action */}
-            <a
-              href={leadsApi.exportXlsxUrl(statusFilter || undefined)}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={handleExportXlsx}
+              disabled={downloadingXlsx}
               className="btn btn-primary btn-sm"
-              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               title="Download verified leads as a styled Excel (.xlsx) spreadsheet"
             >
-              <FileSpreadsheet size={13} />
-              Download Excel (.xlsx)
-            </a>
+              <FileSpreadsheet size={13} className={downloadingXlsx ? 'spin' : ''} />
+              {downloadingXlsx ? 'Exporting...' : 'Download Excel (.xlsx)'}
+            </button>
 
             {/* Export CSV Action */}
-            <a
-              href={leadsApi.exportUrl(statusFilter || undefined)}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={handleExportCsv}
+              disabled={downloadingCsv}
               className="btn btn-secondary btn-sm"
-              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               title="Download CSV export of currently filtered leads"
             >
-              <Download size={13} />
-              CSV
-            </a>
+              <Download size={13} className={downloadingCsv ? 'spin' : ''} />
+              {downloadingCsv ? 'Exporting...' : 'CSV'}
+            </button>
+
           </div>
         </div>
       </div>

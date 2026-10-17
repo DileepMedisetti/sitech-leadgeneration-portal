@@ -1,13 +1,14 @@
 
 import React, { useEffect, useState } from 'react';
-import { CheckSquare, CheckCircle, XCircle, AlertTriangle, ExternalLink, ShieldAlert } from 'lucide-react';
+import { CheckSquare, CheckCircle, XCircle, AlertTriangle, ExternalLink } from 'lucide-react';
 import { reviewQueueApi } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Pagination from '../../components/ui/Pagination';
 import EmptyState from '../../components/ui/EmptyState';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
-export default function ReviewQueuePage({ onNavigate }) {
+export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
+
   const [candidates, setCandidates] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
