@@ -21,6 +21,7 @@ import { searchJobsApi, leadsApi } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Pagination from '../../components/ui/Pagination';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import IdBadge, { formatEntityId } from '../../components/ui/IdBadge';
 
 export default function JobDetailPage({ jobId, onNavigate }) {
   const [job, setJob] = useState(null);
@@ -339,10 +340,11 @@ export default function JobDetailPage({ jobId, onNavigate }) {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                 {job.search_name || 'Academic Discovery Workspace'}
               </h2>
+              <IdBadge prefix="JOB" id={job.id} />
               <StatusBadge status={job.status} />
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -464,7 +466,9 @@ export default function JobDetailPage({ jobId, onNavigate }) {
                 ) : (
                   results.map((res) => (
                     <tr key={res.id}>
-                      <td style={{ color: 'var(--text-muted)' }}>#{res.id}</td>
+                      <td>
+                        <IdBadge prefix="RES" id={res.id} />
+                      </td>
                       <td style={{ maxWidth: '400px' }}>
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {res.result_title || 'Webpage Document'}
@@ -496,7 +500,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
                             onClick={() => onNavigate('leads', res.lead_id)}
                             className="btn btn-secondary btn-sm"
                           >
-                            View Lead #{res.lead_id}
+                            View Lead ({formatEntityId('LEAD', res.lead_id)})
                           </button>
                         )}
                       </td>
@@ -565,6 +569,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
             <table className="data-table">
               <thead>
                 <tr>
+                  <th style={{ width: '90px' }}>Lead ID</th>
                   <th>Name</th>
                   <th>Email</th>
                   <th>Designation</th>
@@ -577,13 +582,16 @@ export default function JobDetailPage({ jobId, onNavigate }) {
               <tbody>
                 {leads.length === 0 ? (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
                       No leads extracted yet for this job. Click "Extract Leads" above to parse pending URLs.
                     </td>
                   </tr>
                 ) : (
                   leads.map((lead) => (
                     <tr key={lead.id}>
+                      <td>
+                        <IdBadge prefix="LEAD" id={lead.id} />
+                      </td>
                       <td style={{ fontWeight: 600 }}>{lead.name}</td>
                       <td>
                         <a href={`mailto:${lead.email}`}>{lead.email}</a>
@@ -629,7 +637,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
           <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>
             Search Criteria & Safety Configuration
           </h3>
-          <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+          <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
             <pre style={{ margin: 0, fontSize: '13px', overflowX: 'auto', fontFamily: 'monospace' }}>
               {JSON.stringify(
                 {

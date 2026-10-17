@@ -6,6 +6,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import Pagination from '../../components/ui/Pagination';
 import EmptyState from '../../components/ui/EmptyState';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import IdBadge from '../../components/ui/IdBadge';
 
 export default function SearchJobsPage({ onNavigate }) {
   const [jobs, setJobs] = useState([]);
@@ -78,8 +79,8 @@ export default function SearchJobsPage({ onNavigate }) {
       {loading ? (
         <LoadingSpinner text="Loading search jobs..." />
       ) : error ? (
-        <div className="card" style={{ borderLeft: '4px solid var(--danger)', backgroundColor: 'var(--danger-light)' }}>
-          <p style={{ color: 'var(--danger-text)', margin: 0 }}>{error}</p>
+        <div className="card" style={{ borderLeft: '4px solid var(--border-focus)', backgroundColor: 'var(--bg-subtle)' }}>
+          <p style={{ color: 'var(--text-primary)', margin: 0 }}>{error}</p>
         </div>
       ) : jobs.length === 0 ? (
         <EmptyState
@@ -113,7 +114,9 @@ export default function SearchJobsPage({ onNavigate }) {
                     : 0;
                   return (
                     <tr key={job.id}>
-                      <td style={{ color: 'var(--text-muted)', fontWeight: 600 }}>#{job.id}</td>
+                      <td>
+                        <IdBadge prefix="JOB" id={job.id} />
+                      </td>
                       <td>
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                           {job.search_name || 'Academic Discovery Job'}

@@ -88,3 +88,17 @@ def get_search_results_paginated(
     items = list(db.scalars(paged_query).all())
 
     return items, total_count, total_pages
+
+
+def get_all_search_results_for_job(
+    db: Session,
+    search_job_id: int,
+) -> list[SearchResult]:
+    """Retrieve all search results for a specific job, ordered by id."""
+    statement = (
+        select(SearchResult)
+        .where(SearchResult.search_job_id == search_job_id)
+        .order_by(SearchResult.id.asc())
+    )
+    return list(db.scalars(statement).all())
+

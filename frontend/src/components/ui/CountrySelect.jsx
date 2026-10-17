@@ -135,7 +135,7 @@ export default function CountrySelect({
           cursor: disabled ? 'not-allowed' : 'pointer',
           padding: '8px 12px',
           borderColor: isOpen ? 'var(--primary)' : 'var(--border-color)',
-          boxShadow: isOpen ? '0 0 0 3px rgba(13, 148, 136, 0.15)' : 'none',
+          boxShadow: isOpen ? 'var(--focus-ring)' : 'none',
           backgroundColor: disabled ? 'var(--surface-active)' : '#ffffff',
           minHeight: '40px',
         }}

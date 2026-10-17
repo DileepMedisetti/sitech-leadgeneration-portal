@@ -39,7 +39,7 @@ export default function SettingsPage() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">
-            <Settings size={18} color="var(--primary)" />
+            <Settings size={18} color="var(--text-primary)" />
             System Configuration & Operational Parameters
           </span>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -51,8 +51,8 @@ export default function SettingsPage() {
         <div
           style={{
             padding: '14px 16px',
-            backgroundColor: 'var(--primary-light)',
-            border: '1px solid var(--primary-border)',
+            backgroundColor: 'var(--bg-subtle)',
+            border: '1px solid var(--border-color)',
             borderRadius: 'var(--radius-md)',
             marginBottom: '20px',
             display: 'flex',
@@ -60,31 +60,31 @@ export default function SettingsPage() {
             gap: '10px',
           }}
         >
-          <ShieldCheck size={18} color="var(--primary)" style={{ marginTop: '2px', flexShrink: 0 }} />
-          <div style={{ fontSize: '13px', color: 'var(--primary-text)' }}>
+          <ShieldCheck size={18} color="var(--text-primary)" style={{ marginTop: '2px', flexShrink: 0 }} />
+          <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
             <strong>Security Boundary Protected:</strong> API keys, database credentials, and server secrets are strictly managed via server-side environment variables and are never transmitted to or readable from the frontend application.
           </div>
         </div>
 
         {/* Status Badges */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-          <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: '#ffffff' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <Database size={16} color="var(--primary)" />
+              <Database size={16} color="var(--text-primary)" />
               <span style={{ fontWeight: 600, fontSize: '14px' }}>PostgreSQL Database</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--success-text)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-primary)' }}>
               <CheckCircle2 size={14} />
               <span>Connected via SQLAlchemy 2.x</span>
             </div>
           </div>
 
-          <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: '#ffffff' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <Key size={16} color="var(--secondary)" />
+              <Key size={16} color="var(--text-primary)" />
               <span style={{ fontWeight: 600, fontSize: '14px' }}>SerpApi Service</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: config.serpapi_configured ? 'var(--success-text)' : 'var(--danger-text)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-primary)' }}>
               {config.serpapi_configured ? (
                 <>
                   <CheckCircle2 size={14} />
@@ -105,27 +105,28 @@ export default function SettingsPage() {
           Search & Extraction Operational Defaults
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-app)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
             <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Default Target Leads per Job</span>
             <strong style={{ fontSize: '13px' }}>{config.default_target_leads} leads</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-app)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
             <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Default SerpApi Request Budget</span>
             <strong style={{ fontSize: '13px' }}>{config.default_max_serpapi_requests} requests</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-app)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
             <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Default Extraction Batch Size</span>
             <strong style={{ fontSize: '13px' }}>{config.default_extraction_batch_size} URLs</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-app)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
             <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Maximum HTTP Retry Attempts</span>
             <strong style={{ fontSize: '13px' }}>{config.max_retries} attempts (exponential backoff)</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-app)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
             <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Webpage Fetch Timeout</span>
             <strong style={{ fontSize: '13px' }}>{config.request_timeout_seconds} seconds</strong>
           </div>
         </div>
+
 
         {/* Supported Academic Roles */}
         <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>

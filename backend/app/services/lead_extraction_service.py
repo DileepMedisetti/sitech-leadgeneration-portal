@@ -75,11 +75,7 @@ def extract_contact_details(
         soup.title.get_text(" ", strip=True) if soup.title else None
     )
     parsed_page_url = urlparse(page_url)
-    website = (
-        f"{parsed_page_url.scheme}://{parsed_page_url.netloc}"
-        if parsed_page_url.scheme and parsed_page_url.netloc
-        else None
-    )
+    website = page_url if page_url else None
 
     if not contacts:
         return {
@@ -89,6 +85,9 @@ def extract_contact_details(
             "country": None,
             "phone_number": None,
             "linkedin_url": None,
+            "profession": None,
+            "research_specialization": None,
+            "department": None,
             "website": website,
             "source_url": page_url,
             "source_title": page_title,
@@ -114,8 +113,9 @@ def extract_contact_details(
         "phone_number": primary.get("phone_number"),
         "linkedin_url": primary.get("linkedin_url"),
         "profession": primary.get("profession"),
+        "research_specialization": primary.get("research_specialization"),
         "department": primary.get("department"),
-        "website": primary.get("website", website),
+        "website": primary.get("website") or website,
         "source_url": page_url,
         "source_title": page_title,
         "qualification_status": primary.get("qualification_status", "qualified"),
@@ -511,10 +511,15 @@ def process_pending_results(
         try:
             final_url, html = fetch_webpage(result_url)
 
+            job_criteria = dict(job.search_criteria or {})
+            job_keywords = getattr(job, "keywords", None)
+            if job_keywords and "keywords" not in job_criteria:
+                job_criteria["keywords"] = job_keywords
+
             contacts = extract_all_contacts(
                 html=html,
                 page_url=final_url,
-                search_criteria=job.search_criteria or {},
+                search_criteria=job_criteria,
             )
 
         except (

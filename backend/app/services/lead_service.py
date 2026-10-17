@@ -112,7 +112,10 @@ def export_leads_to_csv(
     leads: list[Lead] | None = None,
 ) -> str:
     """Generate a clean CSV string of leads."""
-    if leads is None:
+    if isinstance(db, (list, tuple)):
+        leads = list(db)
+        db = None
+    elif leads is None:
         if db is None:
             raise ValueError("db Session is required when leads list is not provided.")
         leads, _, _ = get_leads_paginated(
@@ -135,6 +138,8 @@ def export_leads_to_csv(
         "University",
         "LinkedIn Profile URL",
         "Academic Designation",
+        "Specialization / Profession",
+        "Institutional Webpage / Lab URL",
         "Department",
         "Phone Number",
         "Qualification Status",
@@ -145,19 +150,21 @@ def export_leads_to_csv(
 
     for lead in leads:
         writer.writerow([
-            lead.id,
-            lead.name,
-            lead.email or "",
-            lead.country or "",
-            lead.university or "",
-            lead.linkedin_url or "",
-            lead.profession or "",
-            lead.department or "",
-            lead.phone_number or "",
-            lead.qualification_status,
-            f"{lead.confidence_score:.2f}" if lead.confidence_score is not None else "",
-            lead.source_url or "",
-            lead.created_at.isoformat() if lead.created_at else "",
+            getattr(lead, "id", "") or "",
+            getattr(lead, "name", "") or "",
+            getattr(lead, "email", "") or "",
+            getattr(lead, "country", "") or "",
+            getattr(lead, "university", "") or "",
+            getattr(lead, "linkedin_url", "") or "",
+            getattr(lead, "profession", "") or "",
+            getattr(lead, "research_specialization", "") or "",
+            getattr(lead, "website", "") or "",
+            getattr(lead, "department", "") or "",
+            getattr(lead, "phone_number", "") or "",
+            getattr(lead, "qualification_status", "") or "",
+            f"{lead.confidence_score:.2f}" if getattr(lead, "confidence_score", None) is not None else "",
+            getattr(lead, "source_url", "") or "",
+            lead.created_at.isoformat() if getattr(lead, "created_at", None) else "",
         ])
 
     return output.getvalue()

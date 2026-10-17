@@ -19,14 +19,17 @@ import {
 
 import { leadsApi, reviewQueueApi } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
+import IdBadge from '../../components/ui/IdBadge';
 
 const getInitialFormData = (lead) => ({
   name: lead?.name || '',
   phone_number: lead?.phone_number || '',
   profession: lead?.profession || '',
+  research_specialization: lead?.research_specialization || '',
   department: lead?.department || '',
   university: lead?.university || '',
   country: lead?.country || '',
+  website: lead?.website || '',
   qualification_status: lead?.qualification_status || 'qualified',
 });
 
@@ -42,7 +45,7 @@ function LinkedInMark() {
         width: 17,
         height: 17,
         borderRadius: 3,
-        backgroundColor: '#0A66C2',
+        backgroundColor: '#18181b',
         color: '#ffffff',
         fontSize: 11,
         fontWeight: 800,
@@ -330,12 +333,14 @@ export default function LeadDetailDrawer({
                 style={{
                   fontSize: 11,
                   color: 'var(--text-muted)',
-                  fontWeight: 600,
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
                 }}
               >
-                LEAD DOSSIER #{lead.id}
+                LEAD DOSSIER
               </span>
 
+              <IdBadge prefix="LEAD" id={lead.id} />
               <StatusBadge status={lead.qualification_status} />
             </div>
 
@@ -423,7 +428,7 @@ export default function LeadDetailDrawer({
             style={{
               margin: '14px 22px 0',
               padding: '10px 14px',
-              backgroundColor: notification.type === 'success' ? 'var(--success-light)' : '#f1f5f9',
+              backgroundColor: notification.type === 'success' ? 'var(--success-light)' : 'var(--bg-subtle)',
               color: notification.type === 'success' ? 'var(--success-text)' : 'var(--text-primary)',
               borderRadius: 'var(--radius-md)',
               fontSize: 12,
@@ -440,9 +445,9 @@ export default function LeadDetailDrawer({
             style={{
               margin: '14px 22px 0',
               padding: '12px 14px',
-              backgroundColor: '#fffbeb',
-              color: '#92400e',
-              border: '1px solid #fde68a',
+              backgroundColor: 'var(--bg-subtle)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-color)',
               borderRadius: 'var(--radius-md)',
               fontSize: 12,
               display: 'flex',
@@ -450,7 +455,7 @@ export default function LeadDetailDrawer({
               alignItems: 'flex-start',
             }}
           >
-            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1, color: '#d97706' }} />
+            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-primary)' }} />
             <div>
               <div style={{ fontWeight: 700, marginBottom: 2 }}>Suspicious Contact Detected</div>
               <div>
@@ -472,10 +477,12 @@ export default function LeadDetailDrawer({
             /* Inline Edit Form */
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <FormField label="Full Name" name="name" value={formData.name} onChange={handleChange} />
-              <FormField label="Academic Designation / Role" name="profession" value={formData.profession} onChange={handleChange} />
+              <FormField label="Designation / Role" name="profession" value={formData.profession} onChange={handleChange} />
+              <FormField label="Specialization / Profession" name="research_specialization" value={formData.research_specialization} onChange={handleChange} />
               <FormField label="Department" name="department" value={formData.department} onChange={handleChange} />
               <FormField label="University / Institution" name="university" value={formData.university} onChange={handleChange} />
               <FormField label="Country" name="country" value={formData.country} onChange={handleChange} />
+              <FormField label="Institutional Webpage / Lab URL" name="website" value={formData.website} onChange={handleChange} />
               <FormField label="Phone Number" name="phone_number" value={formData.phone_number} onChange={handleChange} />
 
               <div className="form-group" style={{ marginBottom: 16 }}>
@@ -524,19 +531,17 @@ export default function LeadDetailDrawer({
                   <span style={{ fontWeight: 600 }}>{lead.name || '—'}</span>
                 </DetailItem>
 
-                <DetailItem icon={<GraduationCap size={15} style={iconStyle} />} label="Academic Designation & Role">
+                <DetailItem icon={<GraduationCap size={15} style={iconStyle} />} label="Designation / Role">
                   {lead.profession || '—'}
+                </DetailItem>
+
+                <DetailItem icon={<FileText size={15} style={iconStyle} />} label="Specialization / Profession">
+                  {lead.research_specialization || '—'}
                 </DetailItem>
 
                 {lead.department && (
                   <DetailItem icon={<Layers size={15} style={iconStyle} />} label="Department / Division">
                     {lead.department}
-                  </DetailItem>
-                )}
-
-                {lead.research_specialization && (
-                  <DetailItem icon={<FileText size={15} style={iconStyle} />} label="Research Specialization">
-                    {lead.research_specialization}
                   </DetailItem>
                 )}
               </div>
@@ -566,7 +571,7 @@ export default function LeadDetailDrawer({
                       href={lead.linkedin_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#0077b5' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-primary)', textDecoration: 'underline' }}
                     >
                       <span>{lead.linkedin_url}</span>
                       <ExternalLink size={11} />
@@ -575,7 +580,7 @@ export default function LeadDetailDrawer({
                 )}
 
                 {lead.website && (
-                  <DetailItem icon={<Globe size={15} style={iconStyle} />} label="Institutional Webpage / Lab">
+                  <DetailItem icon={<Globe size={15} style={iconStyle} />} label="Institutional Webpage / Lab URL">
                     <a
                       href={lead.website}
                       target="_blank"
@@ -670,7 +675,7 @@ export default function LeadDetailDrawer({
                 {lead.evidence && (
                   <div
                     style={{
-                      backgroundColor: '#f8fafc',
+                      backgroundColor: 'var(--bg-subtle)',
                       padding: 10,
                       borderRadius: 'var(--radius-md)',
                       border: '1px solid var(--border-color)',
@@ -709,8 +714,9 @@ export default function LeadDetailDrawer({
                   gap: 8,
                 }}
               >
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  Lead ID #{lead.id}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                  <span>Record:</span>
+                  <IdBadge prefix="LEAD" id={lead.id} />
                 </div>
 
                 <div style={{ display: 'flex', gap: 8 }}>

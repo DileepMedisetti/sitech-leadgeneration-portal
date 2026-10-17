@@ -1,5 +1,6 @@
 
 import re
+from typing import Any
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
@@ -442,3 +443,504 @@ def extract_country_from_html(soup: BeautifulSoup, page_url: str) -> tuple[str |
         return "United States", "academic_domain", 0.7
 
     return None, "none", 0.0
+
+
+# =========================================================
+# DESIGNATION, SPECIALIZATION & DIRECT PROFILE URL HELPERS
+# =========================================================
+
+PROFESSION_DOMAINS: dict[str, set[str]] = {
+    "dentistry": {
+        "dentist", "dentistry", "dental", "orthodontist", "orthodontics",
+        "periodontist", "periodontics", "endodontist", "endodontics",
+        "prosthodontist", "prosthodontics", "oral surgery", "oral and maxillofacial",
+        "pediatric dentistry", "dental surgery", "dental surgeon", "stomatology",
+        "oral biology", "oral health",
+    },
+    "neurology": {
+        "neurologist", "neurology", "neuroscientist", "neuroscience",
+        "neurosurgeon", "neurosurgery", "neurobiology", "neurophysiology",
+        "neuropathology", "neuro", "clinical neurology", "cognitive neurology",
+        "neurodevelopment", "neuroimaging", "brain",
+    },
+    "gynecology": {
+        "gynecologist", "gynecology", "gynaecologist", "gynaecology",
+        "obstetrician", "obstetrics", "obstetrics and gynecology", "ob-gyn",
+        "ob/gyn", "obgyn", "maternal-fetal", "reproductive medicine",
+        "fertility specialist", "women's health",
+    },
+    "computer_science": {
+        "computer science", "computing", "software engineering", "computer engineering",
+        "artificial intelligence", "machine learning", "deep learning", "data science",
+        "cybersecurity", "information technology", "informatics", "nlp", "computer vision",
+        "robotics", "algorithms", "ai researcher",
+    },
+    "engineering": {
+        "mechanical engineering", "electrical engineering", "civil engineering",
+        "chemical engineering", "aerospace engineering", "biomedical engineering",
+        "materials science and engineering", "environmental engineering",
+        "industrial engineering",
+    },
+    "cardiology": {
+        "cardiologist", "cardiology", "cardiovascular", "cardiac surgery", "heart",
+    },
+    "oncology": {
+        "oncologist", "oncology", "cancer research", "hematology", "haematology", "radiation oncology",
+    },
+    "dermatology": {
+        "dermatologist", "dermatology", "cutaneous",
+    },
+    "pediatrics": {
+        "pediatrician", "pediatrics", "paediatrician", "paediatrics", "child health",
+    },
+    "psychiatry": {
+        "psychiatrist", "psychiatry", "psychology", "psychologist", "neuropsychiatry", "mental health",
+    },
+    "biology": {
+        "biologist", "biology", "biochemist", "biochemistry", "molecular biology",
+        "genetics", "geneticist", "microbiology", "microbiologist",
+    },
+    "chemistry": {
+        "chemist", "chemistry", "chemical biology", "organic chemistry",
+    },
+    "physics": {
+        "physicist", "physics", "astrophysics", "astronomy", "quantum",
+    },
+    "mathematics": {
+        "mathematician", "mathematics", "math", "statistics", "statistician", "biostatistics",
+    },
+}
+
+DISALLOWED_PROFILE_DOMAINS = {
+    "google.com", "google.co.uk", "google.co.in", "bing.com", "yahoo.com", "duckduckgo.com",
+    "serper.dev", "serpapi.com", "linkedin.com", "twitter.com", "x.com", "facebook.com",
+    "instagram.com", "youtube.com", "wikipedia.org", "wikidata.org", "researchgate.net",
+    "academia.edu", "scholar.google.com", "orcid.org", "semanticscholar.org",
+}
+
+DISALLOWED_FILE_EXTENSIONS = (
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".zip",
+    ".tar", ".gz", ".rar", ".7z", ".jpg", ".jpeg", ".png", ".gif", ".svg",
+)
+
+TITLE_BOUNDARY_STOPWORDS = (
+    r"(?=\s+(?:specialization|speciality|specialty|department|division|school|college|center|institute|"
+    r"research|area|expertise|office|email|phone|tel|view|profile|bio|page|homepage|dr\.?|prof\.?|\d|$)|$)"
+)
+
+ACADEMIC_COMPOSITE_TITLE_REGEX = re.compile(
+    r"\b(professor|associate\s*professor|assistant\s*professor|clinical\s*professor|"
+    r"distinguished\s*professor|chair\s*professor|emeritus\s*professor|visiting\s*professor|"
+    r"adjunct\s*professor|senior\s*lecturer|principal\s*lecturer|lecturer|reader|instructor|"
+    r"senior\s*research\s*fellow|postdoctoral\s*fellow|research\s*fellow|fellow|"
+    r"chair|head|director|lead\s*scientist|principal\s*investigator|research\s*scientist|"
+    r"scientist|researcher)\s+(?:of|in|for)\s+([A-Za-z\s&/,–-]+?)"
+    + TITLE_BOUNDARY_STOPWORDS,
+    re.IGNORECASE,
+)
+
+EXPLICIT_ROLE_KEYWORDS = {
+    # Dental
+    "dental surgeon": ("Dental Surgeon", "Dentistry"),
+    "dentist": ("Dentist", "Dentistry"),
+    "orthodontist": ("Orthodontist", "Dentistry"),
+    "periodontist": ("Periodontist", "Dentistry"),
+    "prosthodontist": ("Prosthodontist", "Dentistry"),
+    "endodontist": ("Endodontist", "Dentistry"),
+    "pediatric dentist": ("Pediatric Dentist", "Dentistry"),
+    "oral surgeon": ("Oral Surgeon", "Dentistry"),
+    # Neurological
+    "clinical neurologist": ("Clinical Neurologist", "Neurology"),
+    "neurologist": ("Neurologist", "Neurology"),
+    "neurosurgeon": ("Neurosurgeon", "Neurology"),
+    "neuroscientist": ("Neuroscientist", "Neurology"),
+    # Gynecological
+    "consultant gynecologist": ("Consultant Gynecologist", "Gynecology"),
+    "obstetrician and gynecologist": ("Obstetrician & Gynecologist", "Gynecology"),
+    "gynecologist": ("Gynecologist", "Gynecology"),
+    "obstetrician": ("Obstetrician", "Gynecology"),
+    # Computing & Tech
+    "computer science professor": ("Computer Science Professor", "Computer Science"),
+    "ai researcher": ("AI Researcher", "Computer Science"),
+    "machine learning researcher": ("Machine Learning Researcher", "Computer Science"),
+    "computer scientist": ("Computer Scientist", "Computer Science"),
+    "data scientist": ("Data Scientist", "Computer Science"),
+    # Medical & Clinical
+    "consultant physician": ("Consultant Physician", "Internal Medicine"),
+    "consultant surgeon": ("Consultant Surgeon", "Surgery"),
+    "cardiologist": ("Cardiologist", "Cardiology"),
+    "oncologist": ("Oncologist", "Oncology"),
+    "dermatologist": ("Dermatologist", "Dermatology"),
+    "pediatrician": ("Pediatrician", "Pediatrics"),
+    "psychiatrist": ("Psychiatrist", "Psychiatry"),
+}
+
+
+def is_valid_profile_url(url: str | None) -> bool:
+    """Validate whether a URL points to a legitimate web page rather than search, social media, or binary file."""
+    if not url or not isinstance(url, str):
+        return False
+    url = url.strip()
+    if not url.startswith(("http://", "https://")):
+        return False
+
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+    if not hostname:
+        return False
+
+    for disallowed in DISALLOWED_PROFILE_DOMAINS:
+        if hostname == disallowed or hostname.endswith(f".{disallowed}"):
+            return False
+
+    path = parsed.path.lower()
+    if any(path.endswith(ext) for ext in DISALLOWED_FILE_EXTENSIONS):
+        return False
+
+    return True
+
+
+def extract_direct_profile_url(
+    element: Any,
+    page_url: str,
+    person_name: str | None = None,
+) -> str | None:
+    """Extract direct individual faculty profile, lab, or anchor URL from an HTML element.
+
+    Priority:
+      1. Anchor text matching the person's name or link wrapping the name.
+      2. Anchor text containing profile/bio/lab keywords ('View Profile', 'Biography', etc.).
+      3. Link href matching individual profile path pattern (/faculty/, /people/, /profile/, etc.).
+      4. Anchor matching person's name in slug.
+      5. Element container ID / anchor fragment on current page.
+      6. Fallback to full page_url (never truncated to domain root).
+    """
+    if element is None:
+        return page_url if is_valid_profile_url(page_url) else None
+
+    # Find all anchor tags with href
+    anchors = element.find_all("a", href=True) if hasattr(element, "find_all") else []
+
+    candidate_links: list[tuple[int, str]] = []
+
+    name_tokens = []
+    if person_name:
+        clean_name = re.sub(r"[^a-zA-Z\s]", " ", person_name).lower()
+        name_tokens = [t for t in clean_name.split() if len(t) >= 3 and t not in ACADEMIC_TITLES]
+
+    for a in anchors:
+        raw_href = a.get("href", "").strip()
+        if not raw_href or raw_href.startswith(("mailto:", "tel:", "javascript:", "#")):
+            continue
+
+        resolved = urljoin(page_url, raw_href)
+        if not is_valid_profile_url(resolved):
+            continue
+
+        a_text = a.get_text(" ", strip=True).lower()
+        href_lower = resolved.lower()
+
+        # 1. Exact or partial person name inside anchor text
+        if person_name and person_name.lower() in a_text:
+            candidate_links.append((100, resolved))
+            continue
+        if name_tokens and sum(1 for t in name_tokens if t in a_text) >= 2:
+            candidate_links.append((90, resolved))
+            continue
+
+        # 2. Text containing profile/lab keywords
+        if any(kw in a_text for kw in (
+            "view profile", "profile", "full bio", "biography", "faculty page",
+            "lab website", "lab page", "laboratory", "personal homepage",
+            "homepage", "cv", "curriculum vitae", "details", "read more",
+        )):
+            candidate_links.append((80, resolved))
+            continue
+
+        # 3. Path containing profile directories
+        if any(token in href_lower for token in (
+            "/faculty/", "/people/", "/staff/", "/person/", "/profile/", "/bio/",
+            "/members/", "/member/", "/team/", "/author/", "/directory/",
+            "profile.php", "person.php", "details.php", "view.php",
+        )):
+            candidate_links.append((70, resolved))
+            continue
+
+        # 4. Slug containing name tokens
+        if name_tokens and any(t in href_lower for t in name_tokens):
+            candidate_links.append((60, resolved))
+            continue
+
+    if candidate_links:
+        candidate_links.sort(key=lambda x: x[0], reverse=True)
+        return candidate_links[0][1]
+
+    # 5. Check if element itself has an ID for direct anchor navigation
+    element_id = element.get("id") if hasattr(element, "get") else None
+    if element_id and isinstance(element_id, str) and len(element_id) >= 2:
+        clean_base = page_url.split("#", 1)[0]
+        return f"{clean_base}#{element_id}"
+
+    # 6. Fallback to the exact page URL (never netloc)
+    return page_url if is_valid_profile_url(page_url) else None
+
+
+def clean_specialization(val: str | None) -> str | None:
+    """Clean and standardize specialization and department labels."""
+    if not val or not isinstance(val, str):
+        return None
+    val = clean_text(val)
+    if not val or len(val) > 100 or len(val) < 2:
+        return None
+    # Strip common leading descriptors (with or without colon)
+    val = re.sub(
+        r"^(?:specialization|speciality|specialty|research\s+interests?|area\s+of\s+research|"
+        r"expertise|field\s+of\s+study|department\s+of|division\s+of|center\s+for|school\s+of)(?:\s*:\s*|\s+)",
+        "",
+        val,
+        flags=re.IGNORECASE,
+    ).strip(" -|:,;")
+    # Strip trailing action links/keywords like 'Profile', 'View Profile', 'Bio', etc.
+    val = re.sub(
+        r"\s+\b(view\s+profile|profile|bio|biography|homepage|faculty\s+page|details)\b.*$",
+        "",
+        val,
+        flags=re.IGNORECASE,
+    ).strip(" -|:,;")
+    # Remove email if appended
+    val = re.sub(r"\s+[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b.*$", "", val).strip(" -|:,;")
+    return clean_text(val)
+
+
+def extract_designation_and_specialization(
+    element: Any,
+    page_soup: BeautifulSoup | None = None,
+) -> tuple[str | None, str | None]:
+    """Extract both academic/clinical Designation and Specialization/Profession from HTML.
+
+    Captures:
+      - Composite titles: 'Professor of Dentistry', 'Assistant Professor of Computer Science'
+      - Standalone explicit roles: 'Dentist', 'Orthodontist', 'Neurologist', 'AI Researcher'
+      - Distinct designation and department/specialization elements
+      - Context fallback from page headings/breadcrumbs
+    """
+    if element is None:
+        return None, None
+
+    extracted_designation: str | None = None
+    extracted_specialization: str | None = None
+
+    # Step 1: Check targeted designation/role tags first to avoid bleeding from neighboring elements
+    if hasattr(element, "select"):
+        for sel in (
+            '[class*="designation"]', '[class*="title"]', '[class*="role"]',
+            '[class*="position"]', '[class*="rank"]', 'h3', 'h4', 'h5', 'p', 'span', 'td',
+        ):
+            for tag in element.select(sel):
+                t = tag.get_text(" ", strip=True)
+                if not t or len(t) > 100 or EMAIL_PATTERN.search(t):
+                    continue
+
+                # 1A: Check composite regex on tag
+                match = ACADEMIC_COMPOSITE_TITLE_REGEX.search(t)
+                if match:
+                    matched_title = match.group(1).strip().title()
+                    matched_field = match.group(2).strip().rstrip(".,;:-")
+                    clean_field = re.split(
+                        r"\b(specialization|speciality|specialty|department|division|school|college|center|institute|research|area|expertise|office|email|phone|tel|view|profile|bio|page)\b",
+                        matched_field,
+                        flags=re.IGNORECASE,
+                    )[0].strip(" -|:,;")
+                    if clean_field and len(clean_field) <= 80:
+                        extracted_designation = f"{matched_title} of {clean_field}"
+                        extracted_specialization = clean_specialization(clean_field)
+                        break
+
+                # 1B: Explicit role keywords in tag
+                for kw, (role_name, spec_name) in EXPLICIT_ROLE_KEYWORDS.items():
+                    if re.search(rf"\b{re.escape(kw)}\b", t, re.IGNORECASE):
+                        extracted_designation = role_name
+                        extracted_specialization = spec_name
+                        break
+                if extracted_designation:
+                    break
+
+                # 1C: Standalone academic titles in tag
+                for title in (
+                    "Distinguished Professor", "Institute Professor", "Associate Professor", "Assistant Professor",
+                    "Clinical Professor", "Visiting Professor", "Adjunct Professor",
+                    "Chair Professor", "Emeritus Professor",
+                    "Professor", "Senior Lecturer", "Principal Lecturer", "Lecturer", "Reader", "Instructor",
+                    "Postdoctoral Fellow", "Research Fellow", "Fellow", "Head of Department",
+                    "Department Chair", "Dean", "Director", "Research Scientist",
+                    "Senior Scientist", "Staff Scientist", "Scientist", "Researcher",
+                ):
+                    if re.search(rf"\b{re.escape(title)}\b", t, re.IGNORECASE):
+                        cleaned_t = clean_text(t)
+                        if cleaned_t and len(cleaned_t) <= 60 and not EMAIL_PATTERN.search(cleaned_t):
+                            extracted_designation = cleaned_t
+                        else:
+                            extracted_designation = title
+                        break
+                if extracted_designation:
+                    break
+            if extracted_designation:
+                break
+
+    # Step 2: If designation not found in targeted tags, check element-wide text
+    if not extracted_designation:
+        element_text = element.get_text(" ", strip=True) if hasattr(element, "get_text") else str(element)
+        match = ACADEMIC_COMPOSITE_TITLE_REGEX.search(element_text)
+        if match:
+            matched_title = match.group(1).strip().title()
+            matched_field = match.group(2).strip().rstrip(".,;:-")
+            clean_field = re.split(
+                r"\b(specialization|speciality|specialty|department|division|school|college|center|institute|research|area|expertise|office|email|phone|tel|view|profile|bio|page)\b",
+                matched_field,
+                flags=re.IGNORECASE,
+            )[0].strip(" -|:,;")
+            if clean_field and len(clean_field) <= 80:
+                extracted_designation = f"{matched_title} of {clean_field}"
+                extracted_specialization = clean_specialization(clean_field)
+
+        if not extracted_designation:
+            for kw, (role_name, spec_name) in EXPLICIT_ROLE_KEYWORDS.items():
+                if re.search(rf"\b{re.escape(kw)}\b", element_text, re.IGNORECASE):
+                    extracted_designation = role_name
+                    extracted_specialization = spec_name
+                    break
+
+    # Step 3: Check specific elements for dedicated research / specialization / interest / expertise
+    # Dedicated research topics take precedence over general domain titles
+    if hasattr(element, "select"):
+        dedicated_research_found = False
+        for sel in (
+            '[class*="specialization"]', '[class*="speciality"]', '[class*="specialty"]',
+            '[class*="expertise"]', '[class*="research"]', '[class*="interest"]',
+        ):
+            for tag in element.select(sel):
+                t = tag.get_text(" ", strip=True)
+                candidate_spec = clean_specialization(t)
+                if candidate_spec and len(candidate_spec) <= 80:
+                    extracted_specialization = candidate_spec
+                    dedicated_research_found = True
+                    break
+            if dedicated_research_found:
+                break
+
+        # If specialization is still missing, fallback to department/division tags
+        if not extracted_specialization:
+            for sel in ('[class*="discipline"]', '[class*="department"]', '[class*="division"]'):
+                for tag in element.select(sel):
+                    t = tag.get_text(" ", strip=True)
+                    candidate_spec = clean_specialization(t)
+                    if candidate_spec and len(candidate_spec) <= 80:
+                        extracted_specialization = candidate_spec
+                        break
+                if extracted_specialization:
+                    break
+
+    # Step 4: Page-level context fallback if designation exists and specialization is missing
+    if page_soup and extracted_designation and not extracted_specialization:
+        for sel in ("h1", "h2", ".department-name", ".breadcrumb"):
+            for el in page_soup.select(sel):
+                t = el.get_text(" ", strip=True)
+                dept_match = re.search(r"\b(?:Department|Division|School|College|Center)\s+of\s+([A-Za-z\s&/,–-]+)", t, re.IGNORECASE)
+                if dept_match:
+                    found_spec = clean_specialization(dept_match.group(1))
+                    if found_spec and len(found_spec) <= 60:
+                        extracted_specialization = found_spec
+                        break
+                for domain, kws in PROFESSION_DOMAINS.items():
+                    if any(kw in t.lower() for kw in kws):
+                        extracted_specialization = domain.replace("_", " ").title()
+                        break
+                if extracted_specialization:
+                    break
+            if extracted_specialization:
+                break
+
+    return clean_text(extracted_designation), clean_specialization(extracted_specialization)
+
+
+def check_profession_match(
+    extracted_profession: str | None,
+    extracted_specialization: str | None,
+    requested_profession: str | None,
+    department: str | None = None,
+) -> tuple[bool, str | None]:
+    """Verify whether a candidate's extracted role/specialization matches the user's requested profession.
+
+    Returns:
+        (is_match, mismatch_reason)
+    """
+    if not requested_profession or not requested_profession.strip():
+        return True, None
+
+    req_clean = requested_profession.strip().lower()
+
+    # Identify target domain(s) from requested_profession
+    target_domains: set[str] = set()
+    for domain, kws in PROFESSION_DOMAINS.items():
+        if any(kw in req_clean for kw in kws):
+            target_domains.add(domain)
+
+    # Combine all candidate fields
+    cand_tokens = " ".join(
+        filter(None, [extracted_profession, extracted_specialization, department])
+    ).lower()
+
+    if not cand_tokens.strip():
+        return False, f"Candidate has no verified profession to match requested '{requested_profession}'"
+
+    if target_domains:
+        # Check if candidate matches any target domain
+        has_target_match = False
+        for domain in target_domains:
+            kws = PROFESSION_DOMAINS[domain]
+            if any(kw in cand_tokens for kw in kws):
+                has_target_match = True
+                break
+
+        if has_target_match:
+            return True, None
+
+        # Check if candidate explicitly belongs to a different domain
+        competing_domains: set[str] = set()
+        for domain, kws in PROFESSION_DOMAINS.items():
+            if domain not in target_domains:
+                if any(kw in cand_tokens for kw in kws):
+                    competing_domains.add(domain.replace("_", " ").title())
+
+        if competing_domains:
+            comp_list = ", ".join(sorted(competing_domains))
+            return False, f"Candidate role '{extracted_profession or cand_tokens}' is in '{comp_list}', does not match requested profession '{requested_profession}'"
+
+        # Check substantive word overlap
+        req_words = {
+            w for w in re.split(r"\W+", req_clean)
+            if len(w) >= 4 and w not in {"professor", "associate", "assistant", "department", "faculty", "doctor", "researcher", "lecturer"}
+        }
+        if req_words and any(w in cand_tokens for w in req_words):
+            return True, None
+
+        return False, f"Candidate role '{extracted_profession or cand_tokens}' does not match requested profession '{requested_profession}'"
+
+    # Target domain not in dictionary: perform keyword/stem overlap
+    req_words = {
+        w for w in re.split(r"\W+", req_clean)
+        if len(w) >= 4 and w not in {"professor", "associate", "assistant", "department", "faculty", "doctor", "researcher", "lecturer"}
+    }
+    if not req_words:
+        return True, None
+
+    if any(w in cand_tokens for w in req_words):
+        return True, None
+
+    # Check if candidate belongs to a known domain that doesn't overlap
+    for domain, kws in PROFESSION_DOMAINS.items():
+        if any(kw in cand_tokens for kw in kws) and not any(kw in req_clean for kw in kws):
+            return False, f"Candidate role '{extracted_profession or cand_tokens}' belongs to '{domain.replace('_', ' ').title()}', does not match requested '{requested_profession}'"
+
+    return False, f"Candidate role '{extracted_profession or cand_tokens}' does not match requested '{requested_profession}'"
+

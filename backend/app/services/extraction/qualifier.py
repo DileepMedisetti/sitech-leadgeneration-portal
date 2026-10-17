@@ -2,6 +2,7 @@
 from typing import Any
 
 from app.services.extraction.cleaners import (
+    check_profession_match,
     is_generic_contact_email,
     is_valid_email,
 )
@@ -13,15 +14,18 @@ def calculate_qualification_score(
     strategy: str,
     association_strength: str,  # 'exact_jsonld', 'card_container', 'table_row', 'single_profile'
     profession: str | None = None,
+    research_specialization: str | None = None,
     department: str | None = None,
     university: str | None = None,
     country: str | None = None,
     phone: str | None = None,
     linkedin: str | None = None,
+    website: str | None = None,
     name_email_correlated: bool = True,
     is_suspicious_name: bool = False,
     is_generic_email: bool = False,
     permit_department_contacts: bool = False,
+    requested_profession: str | None = None,
 ) -> tuple[str, float, str, dict[str, Any]]:
     """Determine qualification status, confidence score, reason, and field provenance.
 
@@ -64,6 +68,8 @@ def calculate_qualification_score(
         }
         if profession:
             evidence["fields"]["profession"] = {"value": profession, "source": strategy}
+        if research_specialization:
+            evidence["fields"]["research_specialization"] = {"value": research_specialization, "source": strategy}
         if department:
             evidence["fields"]["department"] = {"value": department, "source": strategy}
         if university:
@@ -74,6 +80,8 @@ def calculate_qualification_score(
             evidence["fields"]["phone"] = {"value": phone}
         if linkedin:
             evidence["fields"]["linkedin"] = {"value": linkedin}
+        if website:
+            evidence["fields"]["website"] = {"value": website, "source": "direct_profile_url"}
 
         # A candidate without an email can NEVER be qualified
         score = 0.65
@@ -127,6 +135,33 @@ def calculate_qualification_score(
             evidence,
         )
 
+    # Profession relevance check: reject candidate if their role does not match requested profession
+    if requested_profession and requested_profession.strip():
+        is_match, mismatch_reason = check_profession_match(
+            extracted_profession=profession,
+            extracted_specialization=research_specialization,
+            requested_profession=requested_profession,
+            department=department,
+        )
+        if not is_match:
+            evidence["rejection_reason"] = "profession_mismatch"
+            evidence["requested_profession"] = requested_profession
+            evidence["fields"]["name"] = {"value": name, "source": strategy}
+            evidence["fields"]["email"] = {"value": email, "source": strategy}
+            if profession:
+                evidence["fields"]["profession"] = {"value": profession, "source": strategy}
+            if research_specialization:
+                evidence["fields"]["research_specialization"] = {"value": research_specialization, "source": strategy}
+            if website:
+                evidence["fields"]["website"] = {"value": website, "source": "direct_profile_url"}
+            return (
+                "rejected",
+                0.0,
+                f"Rejected: {mismatch_reason}",
+                evidence,
+            )
+        evidence["requested_profession_matched"] = True
+
     # Base confidence based on association strength
     if association_strength == "exact_jsonld":
         score = 0.95
@@ -157,7 +192,6 @@ def calculate_qualification_score(
             evidence,
         )
 
-
     evidence["fields"]["name"] = {
         "value": name,
         "source": strategy,
@@ -176,8 +210,14 @@ def calculate_qualification_score(
             "value": profession,
             "source": strategy,
         }
-    if department:
+    if research_specialization:
         score = min(0.99, score + 0.03)
+        evidence["fields"]["research_specialization"] = {
+            "value": research_specialization,
+            "source": strategy,
+        }
+    if department:
+        score = min(0.99, score + 0.02)
         evidence["fields"]["department"] = {
             "value": department,
             "source": strategy,
@@ -196,6 +236,11 @@ def calculate_qualification_score(
         evidence["fields"]["phone"] = {"value": phone}
     if linkedin:
         evidence["fields"]["linkedin"] = {"value": linkedin}
+    if website:
+        evidence["fields"]["website"] = {
+            "value": website,
+            "source": "direct_profile_url",
+        }
 
     if not has_email or not is_valid_email(clean_email) or is_generic_contact_email(clean_email):
         score = min(score, 0.65)

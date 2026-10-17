@@ -78,7 +78,7 @@ export default function App() {
         };
       case 'job-detail':
         return {
-          title: `Search Job Workspace #${activeParam || ''}`,
+          title: activeParam ? `Search Job Workspace · Job ${String(activeParam).padStart(3, '0')}` : 'Search Job Workspace',
           subtitle: 'Collect results, trigger extraction, and inspect discovered contacts',
         };
       case 'discovery':

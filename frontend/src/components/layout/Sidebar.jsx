@@ -1,15 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LayoutDashboard,
   Search,
-  PlusCircle,
   Compass,
   Cpu,
   Users,
   CheckSquare,
   BarChart2,
   Settings,
-  Sparkles,
   ChevronLeft,
   ChevronRight,
   X,
@@ -23,10 +21,11 @@ export default function Sidebar({
   isCollapsed,
   onToggleCollapse,
 }) {
+  const [logoFailed, setLogoFailed] = useState(false);
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'jobs', label: 'Search Jobs', icon: Search },
-    { id: 'new-job', label: 'Create Job', icon: PlusCircle },
     { id: 'discovery', label: 'Discovery Engine', icon: Compass },
     { id: 'extraction', label: 'Extraction Monitor', icon: Cpu },
     { id: 'leads', label: 'Lead Management', icon: Users },
@@ -51,45 +50,49 @@ export default function Sidebar({
         {/* Brand & Top Right Collapse Header */}
         <div
           style={{
-            padding: isCollapsed ? '16px 10px' : '16px 18px',
+            padding: isCollapsed ? '16px 8px' : '16px 18px',
             borderBottom: '1px solid var(--bg-sidebar-border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: isCollapsed ? 'center' : 'space-between',
-            height: 'var(--header-height)',
+            minHeight: '76px',
             gap: '8px',
+            boxSizing: 'border-box',
           }}
         >
           {!isCollapsed ? (
             <>
               {/* Brand Logo & Name */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-                <div
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', overflow: 'hidden' }}>
+                <img
+                  src="/logo.png"
+                  alt="Lead Intelligence"
+                  onError={() => setLogoFailed(true)}
                   style={{
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    boxShadow: '0 2px 6px rgba(13, 148, 136, 0.35)',
-                    flexShrink: 0,
+                    maxHeight: '34px',
+                    maxWidth: '140px',
+                    width: 'auto',
+                    height: 'auto',
+                    objectFit: 'contain',
+                    display: 'block',
                   }}
-                  title="Sitech Series Lead Portal"
-                >
-                  <Sparkles size={18} />
-                </div>
-
-                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                  <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '15px', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+                />
+                {logoFailed && (
+                  <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
                     Sitech Series
                   </div>
-                  <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 500 }}>
-                    Lead Intelligence
-                  </div>
+                )}
+                <div
+                  style={{
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    letterSpacing: '0.02em',
+                    marginTop: '5px',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  Lead Intelligence
                 </div>
               </div>
 
@@ -103,8 +106,8 @@ export default function Sidebar({
                     height: '30px',
                     borderRadius: '6px',
                     backgroundColor: 'transparent',
-                    border: '1px solid #1e293b',
-                    color: '#94a3b8',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -124,8 +127,8 @@ export default function Sidebar({
                     height: '30px',
                     borderRadius: '6px',
                     backgroundColor: 'transparent',
-                    border: '1px solid #1e293b',
-                    color: '#94a3b8',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -141,28 +144,44 @@ export default function Sidebar({
               )}
             </>
           ) : (
-            /* Collapsed Mode: Top Expand Button */
-            <button
-              onClick={onToggleCollapse}
-              className="sidebar-collapse-btn"
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '8px',
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
-                color: '#cbd5e1',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-              title="Expand sidebar (Ctrl+[)"
-              aria-label="Expand sidebar"
-            >
-              <ChevronRight size={18} />
-            </button>
+            /* Collapsed Mode: Top Expand Button & Icon */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+              <img
+                src="/logo.png"
+                alt="Lead Intelligence"
+                title="Lead Intelligence"
+                onError={() => setLogoFailed(true)}
+                style={{
+                  maxHeight: '26px',
+                  maxWidth: '36px',
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+              <button
+                onClick={onToggleCollapse}
+                className="sidebar-collapse-btn"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '6px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                title="Expand sidebar (Ctrl+[)"
+                aria-label="Expand sidebar"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           )}
         </div>
 
@@ -188,7 +207,7 @@ export default function Sidebar({
                 >
                   <Icon
                     size={18}
-                    color={active ? 'var(--primary-border)' : '#94a3b8'}
+                    color={active ? '#ffffff' : 'var(--text-sidebar)'}
                     style={{ flexShrink: 0 }}
                   />
                   <span className="nav-item-label">{item.label}</span>
@@ -204,45 +223,6 @@ export default function Sidebar({
             );
           })}
         </nav>
-
-        {/* Bottom Section - Clean status display without bottom collapse button */}
-        <div
-          style={{
-            padding: isCollapsed ? '16px 10px' : '16px 18px',
-            borderTop: '1px solid var(--bg-sidebar-border)',
-            backgroundColor: '#0b1120',
-          }}
-        >
-          {!isCollapsed ? (
-            <div style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                <span
-                  style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--success)',
-                    display: 'inline-block',
-                  }}
-                />
-                <span style={{ color: '#cbd5e1', fontWeight: 500 }}>PostgreSQL Active</span>
-              </div>
-              <div>v2.0 • Academic Lead Portal</div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'center' }} title="PostgreSQL Active • v2.0">
-              <span
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--success)',
-                  display: 'inline-block',
-                }}
-              />
-            </div>
-          )}
-        </div>
       </aside>
     </>
   );

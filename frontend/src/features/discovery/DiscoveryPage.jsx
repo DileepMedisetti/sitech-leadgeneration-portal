@@ -72,7 +72,7 @@ export default function DiscoveryPage({ onNavigate }) {
       <div className="card">
         <div className="card-header">
           <span className="card-title">
-            <Compass size={18} color="var(--primary)" />
+            <Compass size={18} color="var(--text-primary)" />
             Targeted Academic Lead Discovery
           </span>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -81,7 +81,7 @@ export default function DiscoveryPage({ onNavigate }) {
         </div>
 
         {error && (
-          <div style={{ padding: '12px 16px', backgroundColor: 'var(--danger-light)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-md)', color: 'var(--danger-text)', marginBottom: '16px', fontSize: '13px' }}>
+          <div style={{ padding: '12px 16px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', marginBottom: '16px', fontSize: '13px' }}>
             {error}
           </div>
         )}
@@ -103,32 +103,33 @@ export default function DiscoveryPage({ onNavigate }) {
                 value={selectedJobId}
                 onChange={(e) => handleJobChange(e.target.value)}
                 className="form-control"
+                style={{ height: '36px' }}
               >
                 {jobs.map((j) => (
                   <option key={j.id} value={j.id}>
-                    #{j.id} — {j.search_name || j.keywords} ({j.status})
+                    Job {String(j.id).padStart(3, '0')} — {j.search_name || j.keywords} ({j.status})
                   </option>
                 ))}
               </select>
             </div>
 
             {selectedJob && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', backgroundColor: 'var(--bg-app)', padding: '14px', borderRadius: 'var(--radius-md)', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', backgroundColor: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-md)', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
                 <div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Qualified Leads</div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--success-text)' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
                     {selectedJob.qualified_leads_found} / {selectedJob.target_leads}
                   </div>
                 </div>
                 <div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>SerpApi Requests Used</div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary-text)' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
                     {selectedJob.serpapi_requests_used} / {selectedJob.max_serpapi_requests}
                   </div>
                 </div>
                 <div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Remaining Budget</div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: selectedJob.max_serpapi_requests - selectedJob.serpapi_requests_used === 0 ? 'var(--danger-text)' : 'var(--text-primary)' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
                     {Math.max(0, selectedJob.max_serpapi_requests - selectedJob.serpapi_requests_used)} requests
                   </div>
                 </div>
@@ -177,7 +178,7 @@ export default function DiscoveryPage({ onNavigate }) {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                <Shield size={14} color="var(--primary)" />
+                <Shield size={14} color="var(--text-primary)" />
                 <span>Deterministic query cache prevents duplicate API credit consumption</span>
               </div>
 
@@ -196,34 +197,35 @@ export default function DiscoveryPage({ onNavigate }) {
 
       {/* Discovery Outcome Card */}
       {result && (
-        <div className="card" style={{ borderLeft: '4px solid var(--success)', backgroundColor: 'var(--success-light)' }}>
+        <div className="card" style={{ borderLeft: '4px solid #18181b', backgroundColor: 'var(--bg-subtle)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <CheckCircle2 size={18} color="var(--success-text)" />
-            <span style={{ fontWeight: 600, color: 'var(--success-text)', fontSize: '15px' }}>
+            <CheckCircle2 size={18} color="var(--text-primary)" />
+            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '15px' }}>
               Discovery Batch Executed Successfully
             </span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', margin: '14px 0', textAlign: 'center' }}>
-            <div style={{ backgroundColor: '#ffffff', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
               <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{result.results_received}</div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Raw Results</div>
             </div>
-            <div style={{ backgroundColor: '#ffffff', padding: '10px', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--success-text)' }}>{result.results_saved}</div>
+            <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{result.results_saved}</div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>New Stored URLs</div>
             </div>
-            <div style={{ backgroundColor: '#ffffff', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
               <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-secondary)' }}>{result.duplicates_skipped}</div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Duplicates Avoided</div>
             </div>
-            <div style={{ backgroundColor: '#ffffff', padding: '10px', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: result.was_cached ? 'var(--success-text)' : 'var(--primary)' }}>
+            <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {result.was_cached ? '0 (Cached)' : '1 Credit'}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>SerpApi Cost</div>
             </div>
           </div>
+
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
             <button

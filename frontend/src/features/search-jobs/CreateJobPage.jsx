@@ -147,10 +147,10 @@ export default function CreateJobPage({ onNavigate }) {
         <div
           style={{
             padding: '12px 16px',
-            backgroundColor: 'var(--danger-light)',
-            border: '1px solid var(--danger-border)',
+            backgroundColor: 'var(--bg-subtle)',
+            border: '1px solid var(--border-color)',
             borderRadius: 'var(--radius-md)',
-            color: 'var(--danger-text)',
+            color: 'var(--text-primary)',
             marginBottom: '20px',
             display: 'flex',
             alignItems: 'center',
@@ -162,6 +162,7 @@ export default function CreateJobPage({ onNavigate }) {
           <span>{submitError}</span>
         </div>
       )}
+
 
       {/* Single Main Form Container */}
       <div

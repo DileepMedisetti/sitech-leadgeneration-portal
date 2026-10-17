@@ -6,6 +6,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import Pagination from '../../components/ui/Pagination';
 import EmptyState from '../../components/ui/EmptyState';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import IdBadge from '../../components/ui/IdBadge';
 
 export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
 
@@ -72,7 +73,7 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="card-header">
           <span className="card-title">
-            <CheckSquare size={18} color="var(--warning)" />
+            <CheckSquare size={18} color="var(--text-primary)" />
             Candidate Quality & Review Queue
           </span>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -90,20 +91,36 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
           style={{
             padding: '12px 16px',
             borderRadius: 'var(--radius-md)',
-            backgroundColor: banner.type === 'success' ? 'var(--success-light)' : 'var(--danger-light)',
-            border: `1px solid ${banner.type === 'success' ? 'var(--success-border)' : 'var(--danger-border)'}`,
-            color: banner.type === 'success' ? 'var(--success-text)' : 'var(--danger-text)',
+            backgroundColor: 'var(--bg-subtle)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-primary)',
             marginBottom: '16px',
             fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
           }}
         >
-          {banner.text}
+          <span>{banner.text}</span>
+          <button
+            onClick={() => setBanner(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: '16px',
+              padding: '0 4px',
+            }}
+          >
+            ×
+          </button>
         </div>
       )}
 
       {error ? (
-        <div className="card" style={{ borderLeft: '4px solid var(--danger)', backgroundColor: 'var(--danger-light)' }}>
-          <p style={{ color: 'var(--danger-text)', margin: 0 }}>{error}</p>
+        <div className="card" style={{ borderLeft: '4px solid var(--border-focus)', backgroundColor: 'var(--bg-subtle)' }}>
+          <p style={{ color: 'var(--text-primary)', margin: 0 }}>{error}</p>
         </div>
       ) : candidates.length === 0 ? (
         <EmptyState
@@ -117,17 +134,18 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
             <div key={cand.id} className="card" style={{ margin: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                       {cand.name}
                     </h3>
+                    <IdBadge prefix="LEAD" id={cand.id} />
                     <StatusBadge status="needs_review" />
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--warning-text)', backgroundColor: 'var(--warning-light)', padding: '2px 6px', borderRadius: '4px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '2px 6px', borderRadius: '4px' }}>
                       Confidence: {cand.confidence_score ? `${Math.round(cand.confidence_score * 100)}%` : '60%'}
                     </span>
                   </div>
                   <div style={{ fontSize: '13px', marginTop: '4px' }}>
-                    <a href={`mailto:${cand.email}`} style={{ color: 'var(--primary)', fontWeight: 500 }}>
+                    <a href={`mailto:${cand.email}`} style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
                       {cand.email}
                     </a>
                   </div>
@@ -137,7 +155,7 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
                   <button
                     onClick={() => handleReject(cand.id)}
                     disabled={actionLoadingId === cand.id}
-                    className="btn btn-danger btn-sm"
+                    className="btn btn-secondary btn-sm"
                   >
                     <XCircle size={14} /> Reject
                   </button>
@@ -145,7 +163,7 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
                   <button
                     onClick={() => handleApprove(cand.id)}
                     disabled={actionLoadingId === cand.id}
-                    className="btn btn-success btn-sm"
+                    className="btn btn-primary btn-sm"
                   >
                     <CheckCircle size={14} /> Approve as Qualified
                   </button>
@@ -156,10 +174,10 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
               <div
                 style={{
                   padding: '10px 12px',
-                  backgroundColor: 'var(--warning-light)',
-                  border: '1px solid var(--warning-border)',
+                  backgroundColor: 'var(--bg-subtle)',
+                  border: '1px solid var(--border-color)',
                   borderRadius: 'var(--radius-md)',
-                  color: 'var(--warning-text)',
+                  color: 'var(--text-primary)',
                   fontSize: '12px',
                   marginBottom: '12px',
                   display: 'flex',
@@ -167,9 +185,10 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
                   gap: '6px',
                 }}
               >
-                <AlertTriangle size={14} />
+                <AlertTriangle size={14} color="var(--text-muted)" />
                 <span>Review Reason: {cand.qualification_reason || 'Requires manual affiliation or designation check.'}</span>
               </div>
+
 
               {/* Details grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>

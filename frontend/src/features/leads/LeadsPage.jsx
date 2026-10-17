@@ -9,14 +9,18 @@ import {
   RefreshCw,
   X,
   FileSpreadsheet,
+  Globe,
+  ExternalLink,
 } from 'lucide-react';
-import { leadsApi } from '../../services/api-client';
+import { leadsApi, triggerBlobDownload } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Pagination from '../../components/ui/Pagination';
 import EmptyState from '../../components/ui/EmptyState';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import LeadDetailDrawer from './LeadDetailDrawer';
+import IdBadge from '../../components/ui/IdBadge';
 import { COUNTRIES } from '../../data/countries';
+import { generateLeadsExcelBlob } from '../../utils/excelExport';
 
 export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
 
@@ -44,11 +48,65 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
   const handleExportXlsx = async () => {
     try {
       setDownloadingXlsx(true);
-      await leadsApi.downloadXlsx(statusFilter || undefined);
+      setAuditBanner(null);
+
+      const activeParams = {
+        search: search.trim() || undefined,
+        status: statusFilter || undefined,
+        country: countryFilter || undefined,
+      };
+
+      const hasActiveFilters = Boolean(
+        activeParams.search || activeParams.status || activeParams.country
+      );
+
+      // Fetch all matching records across pagination using centralized Axios client
+      const firstPage = await leadsApi.list({
+        page: 1,
+        page_size: 100,
+        ...activeParams,
+      });
+
+      let allLeads = firstPage.items || [];
+      if (firstPage.total_pages > 1) {
+        const remainingRequests = [];
+        for (let p = 2; p <= firstPage.total_pages; p++) {
+          remainingRequests.push(
+            leadsApi.list({
+              page: p,
+              page_size: 100,
+              ...activeParams,
+            })
+          );
+        }
+        const pages = await Promise.all(remainingRequests);
+        pages.forEach((pr) => {
+          allLeads = allLeads.concat(pr.items || []);
+        });
+      }
+
+      if (allLeads.length === 0) {
+        setAuditBanner({
+          type: 'info',
+          text: hasActiveFilters
+            ? 'No leads matched your active search and filter criteria to export.'
+            : 'No leads currently stored in the database to export.',
+        });
+        return;
+      }
+
+      const filename = `sitech_leads_${statusFilter || 'all'}.xlsx`;
+      const blob = generateLeadsExcelBlob(allLeads);
+      triggerBlobDownload(blob, filename, null, true);
+
+      setAuditBanner({
+        type: 'success',
+        text: `Successfully exported ${allLeads.length} lead(s) matching your criteria to ${filename}.`,
+      });
     } catch (err) {
       setAuditBanner({
         type: 'danger',
-        text: `Excel export failed: ${err.message || 'Network error'}`,
+        text: `Excel export failed: ${err.message || 'Unknown network error.'}`,
       });
     } finally {
       setDownloadingXlsx(false);
@@ -178,8 +236,95 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
         </div>
       )}
 
-      {/* Header and Filter Toolbar */}
-      <div className="card" style={{ padding: '16px 20px', margin: 0 }}>
+      {/* Page Header and Action Row */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          paddingBottom: '2px',
+        }}
+      >
+        <div>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
+            Lead Management
+          </h2>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            {totalCount} verified academic faculty contacts in directory
+          </div>
+        </div>
+
+        {/* Action Buttons Row on the Right Side of the Same Horizontal Line */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* 1. Audit Records */}
+          <button
+            type="button"
+            onClick={handleRunAudit}
+            disabled={auditing}
+            className="btn btn-secondary"
+            title="Audit stored leads to detect non-person headings and generic emails"
+            style={{
+              height: '36px',
+              padding: '0 14px',
+              fontSize: '13px',
+              borderRadius: 'var(--radius-md)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <RefreshCw size={14} className={auditing ? 'spin' : ''} />
+            <span>{auditing ? 'Auditing...' : 'Audit Records'}</span>
+          </button>
+
+          {/* 2. Download Excel */}
+          <button
+            type="button"
+            onClick={handleExportXlsx}
+            disabled={downloadingXlsx}
+            className="btn btn-primary"
+            title="Download verified leads as a styled Excel (.xlsx) spreadsheet"
+            style={{
+              height: '36px',
+              padding: '0 14px',
+              fontSize: '13px',
+              borderRadius: 'var(--radius-md)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <FileSpreadsheet size={14} className={downloadingXlsx ? 'spin' : ''} />
+            <span>{downloadingXlsx ? 'Exporting...' : 'Download Excel'}</span>
+          </button>
+
+          {/* 3. Download CSV */}
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={downloadingCsv}
+            className="btn btn-secondary"
+            title="Download CSV export of currently filtered leads"
+            style={{
+              height: '36px',
+              padding: '0 14px',
+              fontSize: '13px',
+              borderRadius: 'var(--radius-md)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <Download size={14} className={downloadingCsv ? 'spin' : ''} />
+            <span>{downloadingCsv ? 'Exporting...' : 'Download CSV'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Search and Filters Toolbar */}
+      <div className="card" style={{ padding: '14px 18px', margin: 0 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
           {/* Search Form */}
           <form
@@ -198,7 +343,7 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="form-control"
-                style={{ paddingLeft: '32px', paddingRight: search ? '30px' : '10px' }}
+                style={{ paddingLeft: '32px', paddingRight: search ? '30px' : '10px', height: '36px' }}
               />
               <Search
                 size={14}
@@ -226,14 +371,13 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                 </button>
               )}
             </div>
-            <button type="submit" className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
+            <button type="submit" className="btn btn-secondary" style={{ height: '36px', padding: '0 14px', flexShrink: 0 }}>
               Search
             </button>
           </form>
 
-          {/* Filters & Actions */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-            {/* Status Filter */}
+          {/* Filter Dropdowns */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
             <select
               value={statusFilter}
               onChange={(e) => {
@@ -241,7 +385,7 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                 setPage(1);
               }}
               className="form-control"
-              style={{ width: '140px', fontSize: '12px' }}
+              style={{ width: '145px', height: '36px', fontSize: '12.5px' }}
               aria-label="Filter by qualification status"
             >
               <option value="">All Statuses</option>
@@ -250,7 +394,6 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
               <option value="rejected">Rejected</option>
             </select>
 
-            {/* Country Filter */}
             <select
               value={countryFilter}
               onChange={(e) => {
@@ -258,7 +401,7 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                 setPage(1);
               }}
               className="form-control"
-              style={{ width: '150px', fontSize: '12px' }}
+              style={{ width: '160px', height: '36px', fontSize: '12.5px' }}
               aria-label="Filter by country"
             >
               <option value="">All Countries</option>
@@ -275,44 +418,6 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                 </option>
               ))}
             </select>
-
-            {/* Quality Audit Action Button */}
-            <button
-              type="button"
-              onClick={handleRunAudit}
-              disabled={auditing}
-              className="btn btn-secondary btn-sm"
-              title="Audit stored leads to detect non-person headings and generic emails"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <RefreshCw size={13} className={auditing ? 'spin' : ''} />
-              {auditing ? 'Auditing...' : 'Audit Records'}
-            </button>
-
-            {/* Export Excel (.xlsx) Action */}
-            <button
-              onClick={handleExportXlsx}
-              disabled={downloadingXlsx}
-              className="btn btn-primary btn-sm"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              title="Download verified leads as a styled Excel (.xlsx) spreadsheet"
-            >
-              <FileSpreadsheet size={13} className={downloadingXlsx ? 'spin' : ''} />
-              {downloadingXlsx ? 'Exporting...' : 'Download Excel (.xlsx)'}
-            </button>
-
-            {/* Export CSV Action */}
-            <button
-              onClick={handleExportCsv}
-              disabled={downloadingCsv}
-              className="btn btn-secondary btn-sm"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              title="Download CSV export of currently filtered leads"
-            >
-              <Download size={13} className={downloadingCsv ? 'spin' : ''} />
-              {downloadingCsv ? 'Exporting...' : 'CSV'}
-            </button>
-
           </div>
         </div>
       </div>
@@ -340,14 +445,16 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ width: '22%' }}>Lead / Person</th>
-                  <th style={{ width: '20%' }}>Professional Email</th>
-                  <th style={{ width: '20%' }}>Role / Department</th>
-                  <th style={{ width: '16%' }}>Institution</th>
-                  <th style={{ width: '10%' }}>Country</th>
-                  <th style={{ width: '12%' }}>Status</th>
-                  <th style={{ width: '9%' }}>Confidence</th>
-                  <th style={{ textAlign: 'right', width: '90px' }}>Actions</th>
+                  <th style={{ width: '85px' }}>Lead ID</th>
+                  <th style={{ width: '17%' }}>Lead / Person</th>
+                  <th style={{ width: '17%' }}>Professional Email</th>
+                  <th style={{ width: '18%' }}>Designation & Specialization</th>
+                  <th style={{ width: '14%' }}>Institution</th>
+                  <th style={{ width: '8%' }}>Country</th>
+                  <th style={{ width: '120px' }}>Profile / Webpage</th>
+                  <th style={{ width: '10%' }}>Status</th>
+                  <th style={{ width: '7%' }}>Confidence</th>
+                  <th style={{ textAlign: 'right', width: '85px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -368,6 +475,11 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                       onClick={() => setSelectedLead(lead)}
                       style={{ cursor: 'pointer' }}
                     >
+                      {/* Lead ID */}
+                      <td>
+                        <IdBadge prefix="LEAD" id={lead.id} />
+                      </td>
+
                       {/* 1. Lead / Person */}
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
@@ -381,9 +493,9 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                                 fontWeight: 600,
                                 padding: '2px 6px',
                                 borderRadius: '4px',
-                                backgroundColor: '#fef3c7',
-                                color: '#92400e',
-                                border: '1px solid #fde68a',
+                                backgroundColor: 'var(--bg-subtle)',
+                                color: 'var(--text-primary)',
+                                border: '1px solid var(--border-color)',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '3px',
@@ -394,25 +506,11 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                             </span>
                           )}
                         </div>
-                        {lead.phone_number ? (
+                        {lead.phone_number && (
                           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
                             {lead.phone_number}
                           </div>
-                        ) : lead.research_specialization ? (
-                          <div
-                            style={{
-                              fontSize: '11px',
-                              color: 'var(--text-muted)',
-                              marginTop: '2px',
-                              maxWidth: '220px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {lead.research_specialization}
-                          </div>
-                        ) : null}
+                        )}
                       </td>
 
                       {/* 2. Professional Email */}
@@ -438,7 +536,7 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                         </div>
                       </td>
 
-                      {/* 3. Role / Department */}
+                      {/* 3. Designation & Specialization */}
                       <td>
                         <div
                           style={{
@@ -454,7 +552,29 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                         >
                           {lead.profession || '—'}
                         </div>
-                        {lead.department && (
+                        {lead.research_specialization ? (
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              color: 'var(--text-muted)',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              maxWidth: '220px',
+                              marginTop: '2px',
+                            }}
+                            title={
+                              lead.department && lead.department !== lead.research_specialization
+                                ? `${lead.research_specialization} (${lead.department})`
+                                : lead.research_specialization
+                            }
+                          >
+                            {lead.research_specialization}
+                            {lead.department && lead.department !== lead.research_specialization
+                              ? ` • ${lead.department}`
+                              : ''}
+                          </div>
+                        ) : lead.department ? (
                           <div
                             style={{
                               fontSize: '11px',
@@ -469,7 +589,7 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                           >
                             {lead.department}
                           </div>
-                        )}
+                        ) : null}
                       </td>
 
                       {/* 4. Institution */}
@@ -496,12 +616,40 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                         </span>
                       </td>
 
-                      {/* 6. Qualification Status */}
+                      {/* 6. Institutional Webpage / Lab URL */}
+                      <td>
+                        {lead.website ? (
+                          <a
+                            href={lead.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '12px',
+                              color: 'var(--text-primary)',
+                              textDecoration: 'underline',
+                              fontWeight: 500,
+                            }}
+                            title={lead.website}
+                          >
+                            <Globe size={12} style={{ flexShrink: 0 }} />
+                            <span>View Profile</span>
+                            <ExternalLink size={10} style={{ flexShrink: 0 }} />
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* 7. Qualification Status */}
                       <td>
                         <StatusBadge status={lead.qualification_status} />
                       </td>
 
-                      {/* 7. Confidence (Strictly percentage or em dash, NEVER 'Verified') */}
+                      {/* 8. Confidence (Strictly percentage or em dash, NEVER 'Verified') */}
                       <td>
                         <span
                           style={{

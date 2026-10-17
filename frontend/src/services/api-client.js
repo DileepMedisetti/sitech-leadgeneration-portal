@@ -80,18 +80,20 @@ apiClient.interceptors.response.use(
 );
 
 // Helper for triggering browser file downloads from Blob data
-function triggerBlobDownload(blobData, defaultFilename, response) {
+export function triggerBlobDownload(blobData, defaultFilename, response, forceFilename = false) {
   let filename = defaultFilename;
-  const disposition = response?.headers?.['content-disposition'];
-  if (disposition && disposition.includes('filename=')) {
-    const match = disposition.match(/filename=["']?([^"';]+)["']?/);
-    if (match && match[1]) {
-      filename = match[1];
+  if (!forceFilename) {
+    const disposition = response?.headers?.['content-disposition'];
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename=["']?([^"';]+)["']?/);
+      if (match && match[1]) {
+        filename = match[1];
+      }
     }
   }
 
-  const blob = new Blob([blobData], {
-    type: response?.headers?.['content-type'] || 'application/octet-stream',
+  const blob = blobData instanceof Blob ? blobData : new Blob([blobData], {
+    type: response?.headers?.['content-type'] || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
   const blobUrl = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -193,7 +195,23 @@ export const searchJobsApi = {
         ...options,
       })
       .then((res) => res.data),
+
+  // Axios blob download for Excel (.xlsx) extraction results export
+  downloadResultsXlsx: async (jobId, customFilename = null, options = {}) => {
+    const res = await apiClient.get(`/api/search-jobs/${jobId}/results/export-xlsx`, {
+      responseType: 'blob',
+      ...options,
+    });
+    const defaultName = customFilename || `job_${String(jobId).padStart(3, '0')}_all_results.xlsx`;
+    return triggerBlobDownload(
+      res.data,
+      defaultName,
+      res,
+      Boolean(customFilename)
+    );
+  },
 };
+
 
 // ==============================================================================
 // Leads API
@@ -226,7 +244,7 @@ export const leadsApi = {
     apiClient.post('/api/leads/audit', null, options).then((res) => res.data),
 
   // Axios blob download for Excel (.xlsx) export
-  downloadXlsx: async (status = 'qualified', jobId = null, options = {}) => {
+  downloadXlsx: async (status = 'qualified', jobId = null, customFilename = null, options = {}) => {
     const res = await apiClient.get('/api/leads/export-xlsx', {
       params: {
         status: status || undefined,
@@ -235,10 +253,12 @@ export const leadsApi = {
       responseType: 'blob',
       ...options,
     });
+    const defaultName = customFilename || `sitech_leads_${status || 'all'}.xlsx`;
     return triggerBlobDownload(
       res.data,
-      `sitech_leads_${status || 'all'}.xlsx`,
-      res
+      defaultName,
+      res,
+      Boolean(customFilename)
     );
   },
 

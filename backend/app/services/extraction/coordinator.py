@@ -53,17 +53,17 @@ class LeadExtractionCoordinator:
             country_src = "search_criteria"
 
         # 1. JSON-LD extraction
-        structured = self.jsonld_strategy.extract(soup, page_url)
+        structured = self.jsonld_strategy.extract(soup, page_url, search_criteria)
 
         # Clean noise tags for HTML structural extraction
         for tag in soup.select("script, style, noscript, template, svg, nav, footer"):
             tag.decompose()
 
         # 2. Faculty card extraction
-        cards = self.card_strategy.extract(soup, page_url)
+        cards = self.card_strategy.extract(soup, page_url, search_criteria)
 
         # 3. Directory table extraction
-        tables = self.table_strategy.extract(soup, page_url)
+        tables = self.table_strategy.extract(soup, page_url, search_criteria)
 
         # 4. Individual profile fallback only if structured/cards/tables found nothing
         profiles = []
@@ -74,9 +74,6 @@ class LeadExtractionCoordinator:
 
         # Merge contacts by identity (email if present, else normalized name + university)
         merged_contacts: dict[str, dict[str, Any]] = {}
-
-        parsed_url = urlparse(page_url)
-        website = f"{parsed_url.scheme}://{parsed_url.netloc}" if parsed_url.scheme and parsed_url.netloc else None
 
         for cand in all_candidates:
             raw_email = cand.get("email")
@@ -95,14 +92,18 @@ class LeadExtractionCoordinator:
             cand_name_key = f"name:{(cand.get('name') or '').lower().strip()}:{(cand.get('university') or detected_uni or '').lower().strip()}"
             if clean_email and cand_name_key in merged_contacts and cand_name_key != key:
                 existing_without_email = merged_contacts.pop(cand_name_key)
-                for fld in ("phone_number", "linkedin_url", "profession", "department"):
+                for fld in (
+                    "phone_number", "linkedin_url", "profession",
+                    "research_specialization", "department", "website",
+                ):
                     if not cand.get(fld) and existing_without_email.get(fld):
                         cand[fld] = existing_without_email[fld]
                 merged_contacts[key] = cand
                 continue
 
             if key not in merged_contacts:
-                cand["website"] = website
+                if not cand.get("website"):
+                    cand["website"] = page_url
                 cand["source_url"] = page_url
                 cand["source_title"] = page_title
                 if not cand.get("university") and detected_uni:
@@ -120,8 +121,14 @@ class LeadExtractionCoordinator:
                     existing["linkedin_url"] = cand["linkedin_url"]
                 if not existing.get("profession") and cand.get("profession"):
                     existing["profession"] = cand["profession"]
+                if not existing.get("research_specialization") and cand.get("research_specialization"):
+                    existing["research_specialization"] = cand["research_specialization"]
                 if not existing.get("department") and cand.get("department"):
                     existing["department"] = cand["department"]
+                if not existing.get("website") and cand.get("website"):
+                    existing["website"] = cand["website"]
+                elif cand.get("website") and cand["website"] != page_url and existing.get("website") == page_url:
+                    existing["website"] = cand["website"]
                 if cand.get("confidence_score", 0) > existing.get("confidence_score", 0):
                     existing["confidence_score"] = cand["confidence_score"]
                     existing["qualification_status"] = cand["qualification_status"]

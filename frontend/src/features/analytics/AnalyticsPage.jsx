@@ -46,28 +46,28 @@ export default function AnalyticsPage() {
           value={efficiency.qualified_leads}
           subtitle={`Out of ${efficiency.total_leads} total contacts`}
           icon={Zap}
-          color="var(--success)"
+          color="var(--text-primary)"
         />
         <MetricCard
           title="SerpApi Requests"
           value={efficiency.serpapi_requests_used}
           subtitle="Total discovery requests consumed"
           icon={BarChart2}
-          color="var(--primary)"
+          color="var(--text-primary)"
         />
         <MetricCard
           title="Leads Per Credit"
           value={`${efficiency.leads_per_request}x`}
           subtitle="Target metric for discovery efficiency"
           icon={Zap}
-          color="var(--secondary)"
+          color="var(--text-primary)"
         />
         <MetricCard
           title="Discovered URLs"
           value={efficiency.total_urls_discovered}
           subtitle="Pages parsed by extraction engine"
           icon={Globe}
-          color="var(--info)"
+          color="var(--text-primary)"
         />
       </div>
 
@@ -76,7 +76,7 @@ export default function AnalyticsPage() {
         <div className="card" style={{ margin: 0 }}>
           <div className="card-header">
             <span className="card-title">
-              <Globe size={16} color="var(--primary)" />
+              <Globe size={16} color="var(--text-primary)" />
               Qualified Leads by Country
             </span>
           </div>
@@ -111,7 +111,7 @@ export default function AnalyticsPage() {
         <div className="card" style={{ margin: 0 }}>
           <div className="card-header">
             <span className="card-title">
-              <Building size={16} color="var(--secondary)" />
+              <Building size={16} color="var(--text-primary)" />
               Top Academic Institutions
             </span>
           </div>
@@ -128,7 +128,7 @@ export default function AnalyticsPage() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '8px 12px',
-                    backgroundColor: 'var(--bg-app)',
+                    backgroundColor: 'var(--bg-subtle)',
                     borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--border-color)',
                   }}
@@ -136,7 +136,7 @@ export default function AnalyticsPage() {
                   <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
                     {u.university}
                   </span>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary)', backgroundColor: 'var(--primary-light)', padding: '2px 8px', borderRadius: '9999px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', backgroundColor: '#ffffff', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: '9999px' }}>
                     {u.count} leads
                   </span>
                 </div>
@@ -150,7 +150,7 @@ export default function AnalyticsPage() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">
-            <PieChart size={16} color="var(--primary)" />
+            <PieChart size={16} color="var(--text-primary)" />
             Search Result Outcomes & Qualification Distribution
           </span>
         </div>
@@ -162,7 +162,7 @@ export default function AnalyticsPage() {
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {result_outcomes.map((r) => (
-                <div key={r.status} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-app)', borderRadius: 'var(--radius-md)' }}>
+                <div key={r.status} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                   <span style={{ textTransform: 'capitalize', fontSize: '13px' }}>{r.status}</span>
                   <strong style={{ fontSize: '13px' }}>{r.count} pages</strong>
                 </div>
@@ -176,7 +176,7 @@ export default function AnalyticsPage() {
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {leads_by_status.map((s) => (
-                <div key={s.status} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-app)', borderRadius: 'var(--radius-md)' }}>
+                <div key={s.status} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                   <span style={{ textTransform: 'capitalize', fontSize: '13px' }}>{s.status.replace('_', ' ')}</span>
                   <strong style={{ fontSize: '13px' }}>{s.count} contacts</strong>
                 </div>
@@ -185,6 +185,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
       </div>
+
     </div>
   );
 }

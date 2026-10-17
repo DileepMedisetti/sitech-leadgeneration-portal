@@ -1,9 +1,10 @@
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.services.excel_export_service import export_search_results_to_excel
 from app.repositories.search_result_repository import get_search_results_paginated
 from app.schemas.lead import PaginatedLeadsResponse
 from app.schemas.search_job import (
@@ -204,6 +205,30 @@ def get_search_job_results_endpoint(
         "total_pages": total_pages,
         "items": items,
     }
+
+
+@router.get(
+    "/{job_id}/results/export-xlsx",
+)
+def export_search_job_results_xlsx_endpoint(
+    job_id: int,
+    db: Session = Depends(get_db),
+):
+    """Download all stored search/extraction results for this job as a native Microsoft Excel (.xlsx) spreadsheet."""
+    job = get_job_detail(db, job_id)
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Search job not found.",
+        )
+    excel_data = export_search_results_to_excel(db=db, job_id=job_id)
+    filename = f"extraction_results_job_{job_id}.xlsx"
+    return Response(
+        content=excel_data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
 
 
 @router.get(

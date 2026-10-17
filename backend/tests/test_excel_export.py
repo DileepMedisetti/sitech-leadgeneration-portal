@@ -11,6 +11,7 @@ from app.main import app
 from app.models.lead import Lead
 from app.services.excel_export_service import (
     generate_leads_excel_bytes,
+    generate_search_results_excel_bytes,
     sanitize_cell_value,
 )
 
@@ -83,22 +84,33 @@ def test_generate_leads_excel_bytes_structure():
     assert "Sitech Verified Leads" in wb.sheetnames
     ws = wb["Sitech Verified Leads"]
 
-    # Verify header row
+    # Verify header row contains the 8 required columns in order
     header_row = [cell.value for cell in ws[1]]
+    assert header_row[:8] == [
+        "Name",
+        "Email",
+        "Designation / Role",
+        "Specialization / Profession",
+        "University / Institution",
+        "Country",
+        "LinkedIn URL",
+        "Institutional Webpage / Lab URL",
+    ]
     assert "Lead ID" in header_row
-    assert "Person Name" in header_row
-    assert "Professional Email" in header_row
-    assert "University / Institution" in header_row
-    assert "Country" in header_row
 
-    # Verify row 2 data
-    assert ws.cell(row=2, column=1).value == 101
-    assert ws.cell(row=2, column=2).value == "Dr. Alice Walker"
-    assert ws.cell(row=2, column=3).value == "alice.walker@mit.edu"
+    # Verify row 2 data matching the 8 fields
+    assert ws.cell(row=2, column=1).value == "Dr. Alice Walker"
+    assert ws.cell(row=2, column=2).value == "alice.walker@mit.edu"
+    assert ws.cell(row=2, column=3).value == "Associate Professor"
+    assert ws.cell(row=2, column=4).value == "Reinforcement Learning"
+    assert ws.cell(row=2, column=5).value == "Massachusetts Institute of Technology"
+    assert ws.cell(row=2, column=6).value == "United States"
+    assert ws.cell(row=2, column=7).value == "https://linkedin.com/in/alicewalker"
+    assert ws.cell(row=2, column=8).value == "https://people.csail.mit.edu/awalker"
     assert ws.cell(row=2, column=14).value == "92%"
 
     # Verify formula injection is defused in row 3
-    assert ws.cell(row=3, column=2).value.startswith("'=")
+    assert ws.cell(row=3, column=1).value.startswith("'=")
 
 
 def test_export_leads_xlsx_endpoint(monkeypatch):
@@ -119,3 +131,73 @@ def test_export_leads_xlsx_endpoint(monkeypatch):
     assert response.content == fake_excel
 
     app.dependency_overrides.clear()
+
+
+def test_generate_search_results_excel_bytes():
+    mock_res_1 = SimpleNamespace(
+        id=1,
+        search_job_id=42,
+        result_url="https://cs.stanford.edu/people",
+        result_title="Faculty Directory | Stanford CS",
+        status="processed",
+        retry_count=0,
+        error_message=None,
+        lead_id=10,
+        processed_at=datetime(2026, 3, 15, 12, 0, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 3, 15, 11, 30, 0, tzinfo=timezone.utc),
+    )
+    mock_res_2 = SimpleNamespace(
+        id=2,
+        search_job_id=42,
+        result_url="https://mit.edu/faculty",
+        result_title="=cmd|'/C calc'!A0",
+        status="failed",
+        retry_count=2,
+        error_message="HTTP 403 Forbidden",
+        lead_id=None,
+        processed_at=datetime(2026, 3, 15, 12, 5, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 3, 15, 11, 31, 0, tzinfo=timezone.utc),
+    )
+
+    excel_bytes = generate_search_results_excel_bytes([mock_res_1, mock_res_2])
+    assert isinstance(excel_bytes, bytes)
+    assert len(excel_bytes) > 1000
+
+    wb = openpyxl.load_workbook(io.BytesIO(excel_bytes))
+    assert "Stored Extraction Results" in wb.sheetnames
+    ws = wb["Stored Extraction Results"]
+
+    headers = [cell.value for cell in ws[1]]
+    assert "Result ID" in headers
+    assert "Target Webpage URL" in headers
+    assert "Webpage Title" in headers
+    assert "Status" in headers
+    assert "Extraction Details" in headers
+
+    # Verify formula injection is defused
+    assert ws.cell(row=3, column=4).value.startswith("'=")
+
+
+def test_export_search_job_results_xlsx_endpoint(monkeypatch):
+    mock_db = MagicMock()
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    fake_excel = b"PK\x03\x04test_search_results_binary"
+
+    monkeypatch.setattr(
+        "app.routes.search_jobs.get_job_detail",
+        lambda db, job_id: {"id": job_id, "keywords": "ai professors"},
+    )
+    monkeypatch.setattr(
+        "app.routes.search_jobs.export_search_results_to_excel",
+        lambda db, job_id: fake_excel,
+    )
+
+    response = client.get("/api/search-jobs/42/results/export-xlsx")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    assert "extraction_results_job_42.xlsx" in response.headers["content-disposition"]
+    assert response.content == fake_excel
+
+    app.dependency_overrides.clear()
+
