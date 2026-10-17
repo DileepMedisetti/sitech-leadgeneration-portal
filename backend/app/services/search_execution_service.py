@@ -1,12 +1,16 @@
 
-from sqlalchemy.orm import Session
-from app.models.search_job import SearchJob
 from datetime import datetime, timezone
-from sqlalchemy import update
+
+from sqlalchemy import func, update
 from sqlalchemy.orm import Session
+
 from app.models.search_job import SearchJob
 from app.repositories.search_job_repository import get_search_job_by_id
 
+
+def _utc_now() -> datetime:
+    """Return the current UTC timestamp."""
+    return datetime.now(timezone.utc)
 
 
 def can_continue_search(job: SearchJob) -> bool:
@@ -24,19 +28,18 @@ def can_continue_search(job: SearchJob) -> bool:
 
 
 def start_search_job(job: SearchJob) -> None:
-    """Mark an eligible search job as running."""
+    """Mark an eligible pending search job as running."""
     if job.status != "pending":
         raise ValueError("Only pending search jobs can be started.")
 
     job.status = "running"
 
     if job.started_at is None:
-        from datetime import datetime, timezone
-        job.started_at = datetime.now(timezone.utc)
+        job.started_at = _utc_now()
 
 
 def record_serpapi_request(job: SearchJob) -> None:
-    """Record an attempted request without exceeding the configured budget."""
+    """Record a request attempt without exceeding the configured budget."""
     if not can_continue_search(job):
         raise ValueError("Search job cannot continue.")
 
@@ -44,7 +47,10 @@ def record_serpapi_request(job: SearchJob) -> None:
 
 
 def record_qualified_lead(job: SearchJob) -> None:
-    """Increment the count when a qualified lead is accepted."""
+    """Increment the qualified-lead count without exceeding the target."""
+    if job.status != "running":
+        raise ValueError("Only running search jobs can accept qualified leads.")
+
     if job.qualified_leads_found >= job.target_leads:
         raise ValueError("Search target has already been reached.")
 
@@ -52,33 +58,30 @@ def record_qualified_lead(job: SearchJob) -> None:
 
 
 def complete_search_job(job: SearchJob) -> None:
-    """Mark a running job as completed."""
+    """Mark a running search job as completed."""
     if job.status != "running":
         raise ValueError("Only running search jobs can be completed.")
 
     job.status = "completed"
-
-    from datetime import datetime, timezone
-    job.completed_at = datetime.now(timezone.utc)
+    job.completed_at = _utc_now()
 
 
 def stop_search_job(job: SearchJob) -> None:
-    """Stop a job when its target or request budget is reached."""
+    """Stop a pending or running search job."""
     if job.status not in {"pending", "running"}:
         return
 
     job.status = "stopped"
-
-    from datetime import datetime, timezone
-    job.completed_at = datetime.now(timezone.utc)
-
+    job.completed_at = _utc_now()
 
 
 def start_persisted_search_job(
     db: Session,
     job_id: int,
 ) -> SearchJob:
-    """Atomically start a pending search job."""
+    """Atomically start a pending search job without overwriting its start time."""
+    now = _utc_now()
+
     statement = (
         update(SearchJob)
         .where(
@@ -87,7 +90,7 @@ def start_persisted_search_job(
         )
         .values(
             status="running",
-            started_at=datetime.now(timezone.utc),
+            started_at=func.coalesce(SearchJob.started_at, now),
         )
         .returning(SearchJob.id)
     )
@@ -113,7 +116,7 @@ def reserve_serpapi_request(
     db: Session,
     job_id: int,
 ) -> bool:
-    """Reserve a request without exceeding the job's limits."""
+    """Atomically reserve one SerpApi request within the job's limits."""
     statement = (
         update(SearchJob)
         .where(
@@ -125,9 +128,7 @@ def reserve_serpapi_request(
             < SearchJob.target_leads,
         )
         .values(
-            serpapi_requests_used=(
-                SearchJob.serpapi_requests_used + 1
-            ),
+            serpapi_requests_used=SearchJob.serpapi_requests_used + 1,
         )
         .returning(SearchJob.id)
     )

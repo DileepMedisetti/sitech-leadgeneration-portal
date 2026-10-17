@@ -6,11 +6,13 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -64,12 +66,24 @@ class SearchResult(Base):
 
     lead_id: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("leads.id", ondelete="RESTRICT"),
+        ForeignKey("leads.id", ondelete="SET NULL"),
         nullable=True,
     )
 
     error_message: Mapped[str | None] = mapped_column(
         Text,
+        nullable=True,
+    )
+
+    retry_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    candidate_data: Mapped[dict | None] = mapped_column(
+        JSONB,
         nullable=True,
     )
 

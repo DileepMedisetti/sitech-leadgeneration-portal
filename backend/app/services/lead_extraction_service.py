@@ -1,8 +1,8 @@
-
 import ipaddress
 import re
 import socket
 import time
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -15,6 +15,21 @@ from app.models.lead import Lead
 from app.models.search_job import SearchJob
 from app.models.search_result import SearchResult
 from app.schemas.lead import LeadCreate
+from app.services.extraction.cleaners import (
+    EMAIL_PATTERN,
+    PHONE_PATTERN,
+    check_linkedin_name_correlation,
+    check_name_email_correlation,
+    clean_person_name,
+    clean_text,
+    extract_linkedin_urls_from_text,
+    is_generic_contact_email,
+    is_valid_email,
+    normalize_email,
+    normalize_linkedin_url,
+    normalize_phone,
+)
+from app.services.extraction.coordinator import LeadExtractionCoordinator
 from app.services.lead_service import process_lead
 from app.services.search_result_service import (
     mark_result_failed,
@@ -22,363 +37,91 @@ from app.services.search_result_service import (
     mark_result_skipped,
 )
 
+# Exported helper aliases for backward compatibility with existing tests
+_clean_person_name = clean_person_name
+_is_generic_contact_email = is_generic_contact_email
+_clean_text = clean_text
 
-# =========================================================
-# EMAIL AND PHONE PATTERNS
-# =========================================================
-
-EMAIL_PATTERN = re.compile(
-    r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
-    re.IGNORECASE,
-)
-
-PHONE_PATTERN = re.compile(
-    r"(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)"
-)
+coordinator = LeadExtractionCoordinator()
 
 
-# =========================================================
-# EMAIL UTILITIES
-# =========================================================
-
-def normalize_email(email: str) -> str:
-    """Normalize email for consistent deduplication."""
-    return email.strip().lower()
-
-
-def is_valid_email(email: str) -> bool:
-    """Check basic email syntax, not mailbox deliverability."""
-    return bool(EMAIL_PATTERN.fullmatch(email.strip()))
-
-
-
-GENERIC_EMAIL_LOCALPARTS = {
-    "admin", "admissions", "admission", "contact", "enquiry", "enquiries",
-    "help", "helpdesk", "info", "inquiry", "mail", "office", "registrar",
-    "support", "webmaster", "newsletter", "communications",
-}
-
-
-def _is_generic_contact_email(email: str) -> bool:
-    """Exclude obvious role inboxes from person-level professor leads."""
-    local_part = email.strip().lower().split("@", 1)[0]
-    return local_part in GENERIC_EMAIL_LOCALPARTS
-
-
-# =========================================================
-# EXTRACT CONTACT DETAILS
-# =========================================================
-
-def _clean_text(value: str | None) -> str | None:
-    if not value:
-        return None
-    value = re.sub(r"\s+", " ", value).strip(" \t\r\n|,:;-")
-    return value or None
-
-
-def _clean_person_name(value: str | None) -> str | None:
-    """Reject generic headings and UI labels that are not a person's name."""
-    candidate = _clean_text(value)
-    if not candidate or len(candidate) > 100 or EMAIL_PATTERN.search(candidate):
-        return None
-
-    normalized = re.sub(r"[^a-z ]", "", candidate.casefold()).strip()
-    blocked_phrases = (
-        "subscribe to our newsletter", "newsletter", "faculty", "our faculty",
-        "faculty members", "faculty directory", "faculty profile", "staff",
-        "our team", "team", "professor", "professors", "contact", "contact us",
-        "admissions", "admission office", "helpdesk", "help desk", "webmaster",
-        "editorial board", "read more", "view profile", "view details", "learn more",
-        "about us", "home", "login", "sign up", "register", "department",
+def extract_all_contacts(
+    html: str,
+    page_url: str,
+    search_criteria: dict | None = None,
+) -> list[dict[str, Any]]:
+    """Extract all qualified and candidate contacts discovered on a webpage."""
+    return coordinator.extract_contacts(
+        html=html,
+        page_url=page_url,
+        search_criteria=search_criteria,
     )
-    if normalized in blocked_phrases:
-        return None
-    if any(phrase in normalized for phrase in (
-        "subscribe to", "newsletter", "helpdesk", "admission office", "contact us",
-        "view profile", "read more", "faculty directory",
-    )):
-        return None
-
-    words = candidate.split()
-    if len(words) < 2 or len(words) > 7:
-        return None
-    if not any(char.isalpha() for char in candidate):
-        return None
-    # A heading with common page/UI language is not a reliable personal name.
-    if re.search(r"\b(university|college|department|faculty|school|directory|profile|newsletter|contact|admission|helpdesk)\b", candidate, re.I):
-        return None
-    return candidate
-
-
-def _emails_in_element(element) -> set[str]:
-    emails = {
-        normalize_email(email)
-        for email in EMAIL_PATTERN.findall(element.get_text(" ", strip=True))
-        if is_valid_email(email) and not _is_generic_contact_email(email)
-    }
-    for link in element.select('a[href^="mailto:"]'):
-        address = link.get("href", "").split(":", 1)[1].split("?", 1)[0].strip()
-        if is_valid_email(address) and not _is_generic_contact_email(address):
-            emails.add(normalize_email(address))
-    return emails
-
-
-def _linkedin_in_element(element, base_url: str) -> str | None:
-    """Return a LinkedIn personal profile linked from this same contact container."""
-    matches = []
-    for link in element.select("a[href]"):
-        absolute = urljoin(base_url, link.get("href", "").strip())
-        parsed = urlparse(absolute)
-        host = (parsed.hostname or "").lower()
-        if (
-            parsed.scheme in {"http", "https"}
-            and (host == "linkedin.com" or host.endswith(".linkedin.com"))
-            and re.match(r"^/in/[^/]+/?$", parsed.path, re.I)
-        ):
-            matches.append(absolute.split("?", 1)[0].rstrip("/"))
-    unique = sorted(set(matches))
-    return unique[0] if len(unique) == 1 else None
-
-
-def _extract_university(soup: BeautifulSoup, page_url: str, page_title: str | None) -> str | None:
-    """Use explicit page metadata/structured data; avoid guessing from a URL slug."""
-    for selector in (
-        'meta[property="og:site_name"]',
-        'meta[name="application-name"]',
-        'meta[name="institution"]',
-    ):
-        meta = soup.select_one(selector)
-        if meta and _clean_text(meta.get("content")):
-            value = _clean_text(meta.get("content"))
-            if value and re.search(r"\b(university|college|institute|school|academy)\b", value, re.I):
-                return value
-
-    # Organization name from JSON-LD, when clearly identified as an educational institution.
-    import json
-    for script in soup.select('script[type="application/ld+json"]'):
-        try:
-            payload = json.loads(script.string or script.get_text())
-        except (TypeError, ValueError):
-            continue
-
-        def find_organization(node):
-            found = []
-            if isinstance(node, dict):
-                node_types = node.get("@type", [])
-                node_types = node_types if isinstance(node_types, list) else [node_types]
-                if any(isinstance(t, str) and t.casefold() in {
-                    "collegeoruniversity", "educationalorganization", "university", "college", "school"
-                } for t in node_types):
-                    name = _clean_text(node.get("name"))
-                    if name:
-                        found.append(name)
-                for child in node.values():
-                    found.extend(find_organization(child))
-            elif isinstance(node, list):
-                for child in node:
-                    found.extend(find_organization(child))
-            return found
-
-        organizations = list(dict.fromkeys(find_organization(payload)))
-        if len(organizations) == 1:
-            return organizations[0]
-
-    # Some official pages include the institution in the title, e.g. "Faculty | Example University".
-    if page_title:
-        title_parts = [part.strip() for part in re.split(r"\s+[|–—-]\s+", page_title) if part.strip()]
-        candidates = [part for part in title_parts if re.search(
-            r"\b(university|college|institute|academy)\b", part, re.I
-        ) and not re.search(r"\b(faculty|directory|profile|contact|newsletter)\b", part, re.I)]
-        if candidates:
-            return candidates[-1]
-    return None
-
-
-def _extract_country(soup: BeautifulSoup, page_url: str) -> str | None:
-    """Use explicit metadata/address or a country-code domain as a cautious fallback."""
-    for selector in (
-        'meta[name="geo.placename"]',
-        'meta[property="og:country-name"]',
-        '[itemprop="addressCountry"]',
-    ):
-        element = soup.select_one(selector)
-        value = element.get("content") if element and element.name == "meta" else (
-            element.get_text(" ", strip=True) if element else None
-        )
-        value = _clean_text(value)
-        if value:
-            return value
-
-    host = (urlparse(page_url).hostname or "").lower()
-    # .ac.in / .edu.in are useful India signals; don't infer a country from generic .com/.org.
-    if host.endswith((".ac.in", ".edu.in", ".gov.in", ".res.in")):
-        return "India"
-    return None
 
 
 def extract_contact_details(
     html: str,
     page_url: str,
     search_criteria: dict | None = None,
-) -> dict[str, str | None]:
-    """Extract a conservative, internally matched contact from public HTML.
+) -> dict[str, Any]:
+    """Extract contact details from public HTML.
 
-    Name and email must be associated within one profile/card or explicit Person JSON-LD.
-    University/country are only returned when supported by metadata, structured data,
-    page title, the URL's India academic domain, or the job's explicit criteria.
+    Maintains backward compatibility with tests expecting a single contact dictionary.
+    Returns the primary contact or empty structure if no contact found.
     """
+    contacts = extract_all_contacts(html, page_url, search_criteria)
+
     soup = BeautifulSoup(html, "html.parser")
-    page_title = _clean_text(soup.title.get_text(" ", strip=True) if soup.title else None)
-
-    structured_contacts: list[tuple[str, str, str | None]] = []
-    import json
-    for script in soup.select('script[type="application/ld+json"]'):
-        try:
-            payload = json.loads(script.string or script.get_text())
-        except (TypeError, ValueError):
-            continue
-
-        def walk_jsonld(node):
-            if isinstance(node, dict):
-                node_type = node.get("@type", [])
-                node_type = node_type if isinstance(node_type, list) else [node_type]
-                if any(isinstance(t, str) and t.casefold() in {"person", "professor", "employee"} for t in node_type):
-                    raw_name, raw_email = node.get("name"), node.get("email")
-                    cleaned_name = _clean_person_name(raw_name if isinstance(raw_name, str) else None)
-                    cleaned_email = str(raw_email).removeprefix("mailto:").strip() if raw_email else ""
-                    same_as = node.get("sameAs", [])
-                    same_as = same_as if isinstance(same_as, list) else [same_as]
-                    linkedin = None
-                    for candidate_url in same_as:
-                        if isinstance(candidate_url, str):
-                            parsed_same_as = urlparse(candidate_url)
-                            host_same_as = (parsed_same_as.hostname or "").lower()
-                            if (host_same_as == "linkedin.com" or host_same_as.endswith(".linkedin.com")) and re.match(r"^/in/[^/]+/?$", parsed_same_as.path, re.I):
-                                linkedin = candidate_url.split("?", 1)[0].rstrip("/")
-                                break
-                    if (
-                        cleaned_name
-                        and is_valid_email(cleaned_email)
-                        and not _is_generic_contact_email(cleaned_email)
-                    ):
-                        structured_contacts.append(
-                            (cleaned_name, normalize_email(cleaned_email), linkedin)
-                        )
-                for child in node.values():
-                    walk_jsonld(child)
-            elif isinstance(node, list):
-                for child in node:
-                    walk_jsonld(child)
-        walk_jsonld(payload)
-
-    # Capture institution/country metadata before removing scripts or layout sections.
-    university = _extract_university(soup, page_url, page_title)
-    country = _extract_country(soup, page_url)
-
-    for element in soup.select("script, style, noscript, template, svg, nav, footer, header"):
-        # Preserve footer/header only if structured contact data was already read; these areas
-        # commonly contain generic support emails and navigation labels.
-        element.decompose()
-
-    all_emails = _emails_in_element(soup)
-    name_selector = (
-        '[itemprop="name"], [class*="faculty-name"], [class*="staff-name"], '
-        '[class*="professor-name"], [class*="person-name"], [class*="employee-name"], '
-        '[class*="member-name"], [class*="profile-name"], [class*="faculty"] h2, '
-        '[class*="faculty"] h3, [class*="staff"] h2, [class*="staff"] h3, '
-        '[class*="professor"] h2, [class*="professor"] h3, article h2, article h3, '
-        '[itemprop="name"]'
+    page_title = clean_text(
+        soup.title.get_text(" ", strip=True) if soup.title else None
     )
-    name_elements = []
-    seen = set()
-    for element in soup.select(name_selector):
-        name = _clean_person_name(element.get_text(" ", strip=True))
-        if name and name.casefold() not in seen:
-            seen.add(name.casefold())
-            name_elements.append((element, name))
-
-    paired_contacts: list[tuple[str, str, str | None]] = []
-    for name_element, name in name_elements:
-        container = name_element.find_parent(
-            lambda tag: getattr(tag, "name", None) in {"article", "li", "tr", "div", "section"}
-            and (
-                tag.name in {"article", "li", "tr"}
-                or any(token in " ".join(tag.get("class", [])).casefold() for token in (
-                    "faculty", "staff", "professor", "team-member", "person", "profile",
-                    "employee", "member", "contact", "card", "teacher"
-                ))
-            )
-        )
-        if container is None:
-            continue
-        local_emails = _emails_in_element(container)
-        if len(local_emails) == 1:
-            email = next(iter(local_emails))
-            paired_contacts.append((name, email, _linkedin_in_element(container, page_url)))
-
-    # Merge duplicate representations of the same contact by normalized name/email.
-    # Prefer a LinkedIn URL only when it was found on that same profile/person record.
-    merged_contacts: dict[tuple[str, str], set[str]] = {}
-    for contact_name, contact_email, contact_linkedin in structured_contacts + paired_contacts:
-        key = (contact_name.casefold(), contact_email.casefold())
-        merged_contacts.setdefault(key, set())
-        if contact_linkedin:
-            merged_contacts[key].add(contact_linkedin)
-    if len(merged_contacts) == 1:
-        (normalized_name, normalized_email), profile_links = next(iter(merged_contacts.items()))
-        matching_contact = next(
-            item for item in structured_contacts + paired_contacts
-            if item[0].casefold() == normalized_name and item[1].casefold() == normalized_email
-        )
-        name, email = matching_contact[0], matching_contact[1]
-        linkedin_url = sorted(profile_links)[0] if len(profile_links) == 1 else None
-    else:
-        name, email, linkedin_url = None, None, None
-
-    # Conservative fallback for simple pages with exactly one plausible person
-    # and one non-generic email. This supports simple contact pages where the name,
-    # mailto link, phone and LinkedIn link are sibling elements rather than a card.
-    # Generic role inboxes (helpdesk@, info@, admissions@, etc.) are excluded above.
-    if not merged_contacts and len(name_elements) == 1 and len(all_emails) == 1:
-        _, candidate_name = name_elements[0]
-        candidate_email = next(iter(all_emails))
-        if (
-            _clean_person_name(candidate_name)
-            and is_valid_email(candidate_email)
-            and not _is_generic_contact_email(candidate_email)
-        ):
-            name = candidate_name
-            email = candidate_email
-            linkedin_url = _linkedin_in_element(soup, page_url)
-
     parsed_page_url = urlparse(page_url)
-    website = f"{parsed_page_url.scheme}://{parsed_page_url.netloc}" if parsed_page_url.scheme and parsed_page_url.netloc else None
+    website = (
+        f"{parsed_page_url.scheme}://{parsed_page_url.netloc}"
+        if parsed_page_url.scheme and parsed_page_url.netloc
+        else None
+    )
 
-    # Extract phone numbers from visible page text and explicit telephone links.
-    phone_numbers = {
-        phone.strip()
-        for phone in PHONE_PATTERN.findall(soup.get_text(" ", strip=True))
-        if sum(character.isdigit() for character in phone) >= 9
-    }
-    for link in soup.select('a[href^="tel:"]'):
-        phone = link.get("href", "").removeprefix("tel:").split("?", 1)[0].strip()
-        if sum(character.isdigit() for character in phone) >= 9:
-            phone_numbers.add(phone)
+    if not contacts:
+        return {
+            "name": None,
+            "email": None,
+            "university": None,
+            "country": None,
+            "phone_number": None,
+            "linkedin_url": None,
+            "website": website,
+            "source_url": page_url,
+            "source_title": page_title,
+            "qualification_status": "rejected",
+            "confidence_score": 0.0,
+            "qualification_reason": "No valid contact found",
+            "evidence": None,
+        }
 
-    criteria_country = (search_criteria or {}).get("country")
-    if not country and isinstance(criteria_country, str) and criteria_country.strip():
-        country = criteria_country.strip()
+    # Prefer the first qualified contact.
+    qualified_contacts = [
+        contact
+        for contact in contacts
+        if contact.get("qualification_status") == "qualified"
+    ]
+    primary = qualified_contacts[0] if qualified_contacts else contacts[0]
 
     return {
-        "name": name,
-        "email": email,
-        "university": university,
-        "country": country,
-        "phone_number": sorted(phone_numbers)[0] if phone_numbers else None,
-        "linkedin_url": linkedin_url,
-        "website": website,
+        "name": primary.get("name"),
+        "email": primary.get("email"),
+        "university": primary.get("university"),
+        "country": primary.get("country"),
+        "phone_number": primary.get("phone_number"),
+        "linkedin_url": primary.get("linkedin_url"),
+        "profession": primary.get("profession"),
+        "department": primary.get("department"),
+        "website": primary.get("website", website),
         "source_url": page_url,
         "source_title": page_title,
+        "qualification_status": primary.get("qualification_status", "qualified"),
+        "confidence_score": primary.get("confidence_score", 0.85),
+        "qualification_reason": primary.get("qualification_reason"),
+        "evidence": primary.get("evidence"),
     }
 
 
@@ -392,7 +135,6 @@ def get_pending_results(
     limit: int = 10,
 ) -> list[SearchResult]:
     """Fetch pending results for a search job."""
-
     if limit <= 0:
         raise ValueError("Limit must be greater than zero.")
 
@@ -409,18 +151,73 @@ def get_pending_results(
     return list(db.scalars(statement).all())
 
 
+def get_counted_lead_ids(db: Session, job_id: int) -> set[int]:
+    """Return qualified lead IDs already counted for this search job.
+
+    SearchResult has a single legacy lead_id field. For newly processed
+    results, candidate_data also stores all qualified lead IDs found on
+    that page.
+
+    This preserves compatibility with existing rows while preventing
+    duplicate contacts from inflating the qualified-lead count.
+    """
+    statement = select(SearchResult).where(
+        SearchResult.search_job_id == job_id,
+        SearchResult.status == "processed",
+    )
+
+    counted_ids: set[int] = set()
+
+    for result in db.scalars(statement).all():
+        # Support legacy records that store only one lead_id.
+        res_lead_id = getattr(result, "lead_id", None)
+        if res_lead_id is not None:
+            legacy_lead = db.get(Lead, res_lead_id)
+
+            if (
+                legacy_lead is not None
+                and legacy_lead.qualification_status == "qualified"
+                and legacy_lead.email is not None
+                and is_valid_email(legacy_lead.email)
+                and not is_generic_contact_email(legacy_lead.email)
+            ):
+                counted_ids.add(legacy_lead.id)
+
+        candidate_data = getattr(result, "candidate_data", None)
+
+
+        if isinstance(candidate_data, dict):
+            qualified_ids = candidate_data.get("qualified_lead_ids", [])
+
+            if isinstance(qualified_ids, list):
+                for lead_id in qualified_ids:
+                    try:
+                        lead = db.get(Lead, int(lead_id))
+                        if (
+                            lead is not None
+                            and lead.qualification_status == "qualified"
+                            and lead.email is not None
+                            and is_valid_email(lead.email)
+                            and not is_generic_contact_email(lead.email)
+                        ):
+                            counted_ids.add(int(lead_id))
+                    except (TypeError, ValueError):
+                        continue
+
+    return counted_ids
+
+
 def validate_job_for_extraction(
     db: Session,
     job_id: int,
 ) -> SearchJob:
     """Validate that a job exists and permits extraction."""
-
     job = db.get(SearchJob, job_id)
 
     if job is None:
         raise ValueError("Search job not found.")
 
-    allowed_statuses = {"running", "stopped", "failed"}
+    allowed_statuses = {"running", "stopped", "failed", "completed"}
 
     if job.status not in allowed_statuses:
         raise ValueError(
@@ -431,12 +228,11 @@ def validate_job_for_extraction(
 
 
 # =========================================================
-# PUBLIC URL VALIDATION
+# PUBLIC URL VALIDATION & SSRF MITIGATION
 # =========================================================
 
 def validate_public_url(url: str) -> str:
-    """Allow HTTP(S) URLs resolving exclusively to public IPs."""
-
+    """Allow HTTP(S) URLs resolving exclusively to public globally-routable IPs."""
     parsed = urlparse(url)
 
     if parsed.scheme not in {"http", "https"}:
@@ -480,23 +276,12 @@ def validate_public_url(url: str) -> str:
 # =========================================================
 
 def fetch_webpage(url: str) -> tuple[str, str]:
+    """Fetch a webpage safely and return (final_url, html).
+
+    - HTTP 403/404: Do not retry.
+    - HTTP 429: Retry with bounded backoff.
+    - HTTP 5xx / Network / Timeout: Retry with bounded exponential backoff.
     """
-    Fetch a webpage and return (final_url, html).
-
-    HTTP 403/404:
-        Do not retry.
-
-    HTTP 429:
-        Retry at most three attempts, respecting numeric
-        Retry-After values capped at 30 seconds.
-
-    HTTP 5xx:
-        Retry with exponential backoff.
-
-    Network errors/timeouts:
-        Retry with exponential backoff.
-    """
-
     max_attempts = 3
     timeout_seconds = 15.0
     max_redirects = 4
@@ -511,16 +296,23 @@ def fetch_webpage(url: str) -> tuple[str, str]:
                 timeout=timeout_seconds,
                 follow_redirects=False,
                 headers={
-                    "User-Agent": "SitechLeadResearchBot/1.0",
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36 SitechLeadBot/2.0"
+                    ),
+                    "Accept": (
+                        "text/html,application/xhtml+xml,"
+                        "application/xml;q=0.9,*/*;q=0.8"
+                    ),
                 },
             ) as client:
 
                 for _ in range(max_redirects + 1):
                     current_url = validate_public_url(current_url)
-
                     response = client.get(current_url)
 
-                    # Validate every redirect destination.
+                    # Validate redirect destinations on the next iteration.
                     if response.is_redirect:
                         location = response.headers.get("location")
 
@@ -534,11 +326,10 @@ def fetch_webpage(url: str) -> tuple[str, str]:
 
                     status_code = response.status_code
 
-                    # Do not repeatedly retry access restrictions.
+                    # Do not retry permanent access restrictions.
                     if status_code in (403, 404):
                         raise RuntimeError(
-                            f"HTTP {status_code}: access refused "
-                            "or page not found."
+                            f"HTTP {status_code}: access refused or page not found."
                         )
 
                     # Rate limiting.
@@ -552,13 +343,12 @@ def fetch_webpage(url: str) -> tuple[str, str]:
                                 else 2 ** attempt
                             )
                         except ValueError:
-                            # HTTP-date values fall back to bounded backoff.
                             wait_seconds = 2 ** attempt
 
                         should_retry = True
                         break
 
-                    # Temporary server errors.
+                    # Server errors.
                     if 500 <= status_code <= 599:
                         wait_seconds = 2 ** attempt
                         should_retry = True
@@ -602,22 +392,15 @@ def fetch_webpage(url: str) -> tuple[str, str]:
 
             time.sleep(2 ** attempt)
 
-    raise RuntimeError(
-        "Unable to fetch webpage after retry attempts."
-    )
+    raise RuntimeError("Unable to fetch webpage after retry attempts.")
 
-
-# =========================================================
-# FAILURE HANDLING
-# =========================================================
 
 def _mark_result_as_failed(
     db: Session,
     result_id: int,
     reason: str,
 ) -> None:
-    """Persist a failure after rolling back the current transaction."""
-
+    """Persist a failure after rolling back the transaction."""
     db.rollback()
 
     result = db.get(SearchResult, result_id)
@@ -625,6 +408,7 @@ def _mark_result_as_failed(
     if result is None:
         return
 
+    result.retry_count = (result.retry_count or 0) + 1
     mark_result_failed(result, reason[:1000])
     db.commit()
 
@@ -633,24 +417,31 @@ def _mark_result_as_failed(
 # PROCESS PENDING RESULTS INTO QUALIFIED LEADS
 # =========================================================
 
+IRRELEVANT_RESULT_URL_PATTERN = re.compile(
+    r"(indeed\.com|glassdoor\.com|monster\.com|linkedin\.com/jobs|ziprecruiter\.com|"
+    r"simplyhired\.com|lever\.co|greenhouse\.io|myworkdayjobs\.com|smartrecruiters\.com|"
+    r"//jobs\.[a-z0-9\-]+|//careers\.[a-z0-9\-]+|"
+    r"/jobs/|/careers/|/employment/|/job-openings/|/apply/|/vacancies/)",
+    re.IGNORECASE,
+)
+
+
 def process_pending_results(
     db: Session,
     job_id: int,
     limit: int = 10,
-) -> dict:
-    """
-    Process stored URLs without making additional SerpApi calls.
+) -> dict[str, Any]:
+    """Process stored URLs without consuming additional SerpApi requests.
 
-    A qualified lead requires a nonblank name and syntactically
-    valid email. Each lead is counted at most once per job.
+    Extracts multi-contact directories, creates or enriches leads,
+    enforces qualification criteria, and increments job progress.
     """
-
     if limit <= 0:
         raise ValueError("Limit must be greater than zero.")
 
     job = validate_job_for_extraction(db, job_id)
 
-    counts = {
+    counts: dict[str, Any] = {
         "job_id": job_id,
         "results_processed": 0,
         "leads_created": 0,
@@ -663,6 +454,9 @@ def process_pending_results(
     if job.qualified_leads_found >= job.target_leads:
         counts["message"] = "Qualified lead target already reached."
         return counts
+
+    # Track unique qualified leads already counted for this job.
+    counted_lead_ids = get_counted_lead_ids(db, job_id)
 
     pending_results = get_pending_results(
         db=db,
@@ -679,11 +473,45 @@ def process_pending_results(
         result_id = result.id
         result_url = result.result_url
 
-        # Fetch and parse the webpage.
+        # Pre-fetch filtering: skip known job boards and non-faculty aggregators
+        if IRRELEVANT_RESULT_URL_PATTERN.search(result_url):
+            res = db.get(SearchResult, result_id)
+            if res is not None:
+                mark_result_skipped(
+                    res,
+                    "Skipped: URL matches non-faculty job portal or employment aggregator pattern.",
+                )
+                db.commit()
+            counts["results_skipped"] += 1
+            counts["results_processed"] += 1
+            continue
+
+        # If result_url is a direct personal LinkedIn profile
+        is_direct_linkedin = bool(normalize_linkedin_url(result_url))
+        if is_direct_linkedin:
+            res_title_txt = getattr(result, "result_title", "") or ""
+            res_snippet_txt = getattr(result, "result_snippet", "") or ""
+            text_context = f"{res_title_txt} {res_snippet_txt}"
+            emails_in_snippet = [
+                e for e in EMAIL_PATTERN.findall(text_context)
+                if is_valid_email(e) and not is_generic_contact_email(e)
+            ]
+            if not emails_in_snippet:
+                res = db.get(SearchResult, result_id)
+                if res is not None:
+                    mark_result_skipped(
+                        res,
+                        "Skipped: LinkedIn profile search result does not publish a personal email address.",
+                    )
+                    db.commit()
+                counts["results_skipped"] += 1
+                counts["results_processed"] += 1
+                continue
+
         try:
             final_url, html = fetch_webpage(result_url)
 
-            details = extract_contact_details(
+            contacts = extract_all_contacts(
                 html=html,
                 page_url=final_url,
                 search_criteria=job.search_criteria or {},
@@ -705,21 +533,12 @@ def process_pending_results(
             counts["results_processed"] += 1
             continue
 
-        # Validate qualification requirements.
-        name = details.get("name")
-        email = details.get("email")
+        if not contacts:
+            res = db.get(SearchResult, result_id)
 
-        if (
-            not isinstance(name, str)
-            or not name.strip()
-            or not isinstance(email, str)
-            or not is_valid_email(email)
-        ):
-            result = db.get(SearchResult, result_id)
-
-            if result is not None:
+            if res is not None:
                 mark_result_skipped(
-                    result,
+                    res,
                     "No qualified contact with a valid email was found.",
                 )
                 db.commit()
@@ -728,59 +547,162 @@ def process_pending_results(
             counts["results_processed"] += 1
             continue
 
-        # Save or enrich the lead.
+        # Track every lead saved from this page, as well as qualified leads.
+        saved_lead_ids: list[int] = []
+        qualified_lead_ids_for_result: list[int] = []
+
         try:
-            lead_data = LeadCreate(
-                name=name.strip(),
-                email=normalize_email(email),
-                university=details.get("university"),
-                country=details.get("country"),
-                phone_number=details.get("phone_number"),
-                linkedin_url=details.get("linkedin_url"),
-                website=details.get("website"),
-                source_url=details.get("source_url"),
-                source_title=details.get("source_title"),
-            )
+            for contact in contacts:
+                if job.qualified_leads_found >= job.target_leads:
+                    break
 
-            lead, created = process_lead(
-                db=db,
-                lead_data=lead_data,
-            )
+                raw_name = contact.get("name")
+                if not raw_name or not isinstance(raw_name, str) or not raw_name.strip():
+                    continue
 
-            # Count a lead only once per search job.
-            existing_job_result = db.scalar(
-                select(SearchResult.id)
-                .where(
-                    SearchResult.search_job_id == job_id,
-                    SearchResult.lead_id == lead.id,
-                    SearchResult.status == "processed",
+                cleaned_name = clean_person_name(raw_name)
+                if not cleaned_name:
+                    continue
+
+                # 2. Email validation: MANDATORY. Reject missing or invalid email addresses.
+                raw_email = contact.get("email")
+                if not raw_email or not isinstance(raw_email, str) or not raw_email.strip():
+                    # Person has no email -> skip completely. Do not insert into PostgreSQL.
+                    continue
+
+                clean_email = normalize_email(raw_email)
+                if not is_valid_email(clean_email):
+                    # Invalid format -> skip completely.
+                    continue
+
+                # 3. Reject generic addresses when personal email is required
+                if is_generic_contact_email(clean_email):
+                    # Generic address (info@, contact@, support@, admissions@, etc.) -> skip completely.
+                    continue
+
+                # 4. Association verification:
+                # Reject if candidate qualification was rejected or has unconfirmed/ambiguous association
+                if contact.get("qualification_status") == "rejected":
+                    continue
+
+                evidence = contact.get("evidence") or {}
+                if evidence.get("rejection_reason"):
+                    continue
+                if evidence.get("flag") in {"unconfirmed_association", "ambiguous_association"}:
+                    continue
+
+                # Verify email is actually associated with the identified person
+                if evidence.get("strategy") == "individual_profile":
+                    if not check_name_email_correlation(cleaned_name, clean_email):
+                        continue
+
+                # 1. LinkedIn profile URL extraction:
+                # Check contact's extracted linkedin_url
+                raw_li = contact.get("linkedin_url")
+                clean_li = normalize_linkedin_url(raw_li, base_url=final_url) if raw_li else None
+                if clean_li and not check_linkedin_name_correlation(clean_li, cleaned_name):
+                    clean_li = None
+
+                # If missing from contact HTML, check search result context (result_url, snippet, title)
+                if not clean_li:
+                    res_url = getattr(result, "result_url", None)
+                    if res_url:
+                        li_cand = normalize_linkedin_url(res_url)
+                        if li_cand and check_linkedin_name_correlation(li_cand, cleaned_name):
+                            clean_li = li_cand
+                    res_snippet = getattr(result, "result_snippet", None)
+                    if not clean_li and res_snippet:
+                        for cand_url in extract_linkedin_urls_from_text(res_snippet):
+                            if check_linkedin_name_correlation(cand_url, cleaned_name):
+                                clean_li = cand_url
+                                break
+                    res_title = getattr(result, "result_title", None)
+                    if not clean_li and res_title:
+                        for cand_url in extract_linkedin_urls_from_text(res_title):
+                            if check_linkedin_name_correlation(cand_url, cleaned_name):
+                                clean_li = cand_url
+                                break
+
+                lead_data = LeadCreate(
+                    name=cleaned_name,
+                    email=clean_email,
+                    profession=contact.get("profession"),
+                    department=contact.get("department"),
+                    research_specialization=contact.get(
+                        "research_specialization"
+                    ),
+                    university=contact.get("university"),
+                    country=contact.get("country"),
+                    phone_number=contact.get("phone_number"),
+                    linkedin_url=clean_li,
+                    website=contact.get("website"),
+                    source_url=contact.get("source_url") or final_url,
+                    source_title=contact.get("source_title") or getattr(result, "result_title", None),
+                    qualification_status="qualified",
+                    confidence_score=max(0.80, contact.get("confidence_score", 0.85)),
+                    qualification_reason=contact.get("qualification_reason") or "Verified individual academic lead with confirmed personal email",
+                    evidence=contact.get("evidence"),
+                    search_job_id=job_id,
                 )
-                .limit(1)
-            )
 
-            if existing_job_result is None:
-                job.qualified_leads_found += 1
-                counts["qualified_leads_counted"] += 1
+                lead, created = process_lead(
+                    db=db,
+                    lead_data=lead_data,
+                )
 
-            if created:
-                counts["leads_created"] += 1
-            else:
-                counts["leads_enriched"] += 1
+                # Keep each lead ID only once for this result.
+                if lead.id not in saved_lead_ids:
+                    saved_lead_ids.append(lead.id)
+
+                if lead.qualification_status == "qualified":
+                    if lead.id not in qualified_lead_ids_for_result:
+                        qualified_lead_ids_for_result.append(lead.id)
+
+                    # Count each qualified lead at most once per job.
+                    if lead.id not in counted_lead_ids:
+                        job.qualified_leads_found += 1
+                        counts["qualified_leads_counted"] += 1
+                        counted_lead_ids.add(lead.id)
+
+                if created:
+                    counts["leads_created"] += 1
+                else:
+                    counts["leads_enriched"] += 1
 
             db.flush()
 
-            result = db.get(SearchResult, result_id)
+            res = db.get(SearchResult, result_id)
 
-            if result is None:
-                raise ValueError(
-                    "Search result disappeared during processing."
+            if res is not None:
+                primary_lead_id = (
+                    saved_lead_ids[0] if saved_lead_ids else None
                 )
 
-            mark_result_processed(result, lead_id=lead.id)
+                if saved_lead_ids:
+                    mark_result_processed(
+                        res,
+                        lead_id=primary_lead_id,
+                    )
+                    res.candidate_data = {
+                        "contacts_found": len(contacts),
+                        "leads_saved": len(saved_lead_ids),
+                        "saved_lead_ids": saved_lead_ids,
+                        "qualified_lead_ids": qualified_lead_ids_for_result,
+                    }
+                else:
+                    mark_result_skipped(
+                        res,
+                        "No qualified contact with a valid, person-specific email was found.",
+                    )
+                    res.candidate_data = {
+                        "contacts_found": len(contacts),
+                        "leads_saved": 0,
+                        "saved_lead_ids": [],
+                        "qualified_lead_ids": [],
+                    }
+                    counts["results_skipped"] += 1
 
-            # Commit lead, result status and job counter together.
             db.commit()
-
             counts["results_processed"] += 1
 
         except ValueError as exc:
@@ -820,22 +742,17 @@ RETRYABLE_FAILURE_MARKERS = (
 )
 
 
-def is_retryable_failure(
-    error_message: str | None,
-) -> bool:
-    """
-    Identify known transient failures.
-
-    HTTP 403/404, unsafe URL errors and unknown errors
-    are not automatically retried.
-    """
-
+def is_retryable_failure(error_message: str | None) -> bool:
+    """Identify transient failures eligible for retry."""
     if not error_message:
         return False
 
     message = error_message.strip().lower()
 
     if "http 403" in message or "http 404" in message:
+        return False
+
+    if "private or non-public" in message:
         return False
 
     return any(
@@ -848,15 +765,9 @@ def requeue_retryable_failed_results(
     db: Session,
     job_id: int,
     limit: int = 10,
+    max_retries: int = 3,
 ) -> dict[str, int]:
-    """
-    Requeue eligible failed results as pending.
-
-    This function makes no HTTP requests and consumes
-    no SerpApi credits. Call the extraction endpoint
-    separately to process requeued results.
-    """
-
+    """Requeue eligible failed results without making HTTP or SerpApi calls."""
     if limit <= 0:
         raise ValueError("Limit must be greater than zero.")
 
@@ -868,6 +779,7 @@ def requeue_retryable_failed_results(
             .where(
                 SearchResult.search_job_id == job_id,
                 SearchResult.status == "failed",
+                SearchResult.retry_count < max_retries,
             )
             .order_by(SearchResult.id)
             .limit(limit)

@@ -148,3 +148,28 @@ def test_create_lead_handles_service_value_error(
     assert response.json()["detail"] == "Lead name cannot be empty."
     fake_db.rollback.assert_called_once()
     fake_db.commit.assert_not_called()
+
+
+def test_audit_leads_endpoint(client, fake_db, monkeypatch):
+    def fake_audit(db):
+        return {
+            "total_audited": 4,
+            "reclassified_to_rejected": 1,
+            "reclassified_to_review": 1,
+            "already_valid": 2,
+            "adjusted_jobs": 1,
+            "details": [],
+        }
+
+    monkeypatch.setattr(
+        leads_routes,
+        "audit_and_reclassify_leads",
+        fake_audit,
+    )
+
+    response = client.post("/api/leads/audit")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_audited"] == 4
+    assert data["adjusted_jobs"] == 1
+

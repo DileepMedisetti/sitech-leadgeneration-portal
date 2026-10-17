@@ -1,29 +1,29 @@
-
+from unittest.mock import MagicMock
 from app.services.serpapi_service import search_google
 
 
-def test_serpapi_connection():
-    try:
-        print("Testing SerpApi connection...")
+def test_serpapi_connection(monkeypatch):
+    """Verify search_google with deterministic mock to prevent consuming live SerpApi credits."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "organic_results": [
+            {
+                "title": "Example Institution Faculty",
+                "link": "https://example.edu/faculty",
+                "snippet": "Faculty directory of professors and researchers",
+            }
+        ]
+    }
 
-        results = search_google(
-            query="Python developer companies in India",
-            num_results=5,
-        )
+    monkeypatch.setattr("app.core.config.settings.SERPAPI_API_KEY", "test_mock_serpapi_key")
+    monkeypatch.setattr("httpx.Client.get", lambda *args, **kwargs: mock_response)
 
-        organic_results = results.get("organic_results", [])
+    results = search_google(
+        query="Python developer companies in India",
+        num_results=5,
+    )
 
-        print("\nSerpApi connection successful!")
-        print(f"Number of results received: {len(organic_results)}")
-
-        for index, result in enumerate(organic_results, start=1):
-            print(f"\n{index}. {result.get('title', 'No title')}")
-            print(f"URL: {result.get('link', 'No URL')}")
-
-    except Exception as exc:
-        print("\nSerpApi test failed.")
-        print(f"Error: {exc}")
-
-
-if __name__ == "__main__":
-    test_serpapi_connection()
+    organic_results = results.get("organic_results", [])
+    assert len(organic_results) == 1
+    assert organic_results[0]["link"] == "https://example.edu/faculty"
