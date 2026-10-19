@@ -22,8 +22,10 @@ from app.services.extraction.cleaners import (
     check_name_email_correlation,
     clean_person_name,
     clean_text,
+    clean_verification_url,
     extract_linkedin_urls_from_text,
     is_generic_contact_email,
+    is_generic_homepage,
     is_valid_email,
     normalize_email,
     normalize_linkedin_url,
@@ -105,6 +107,12 @@ def extract_contact_details(
     ]
     primary = qualified_contacts[0] if qualified_contacts else contacts[0]
 
+    best_ver_url = clean_verification_url(primary.get("website")) or clean_verification_url(primary.get("source_url"))
+    if not best_ver_url and not is_generic_homepage(page_url):
+        best_ver_url = clean_verification_url(page_url)
+
+    clean_fallback = clean_verification_url(page_url) if not is_generic_homepage(page_url) else None
+
     return {
         "name": primary.get("name"),
         "email": primary.get("email"),
@@ -115,8 +123,8 @@ def extract_contact_details(
         "profession": primary.get("profession"),
         "research_specialization": primary.get("research_specialization"),
         "department": primary.get("department"),
-        "website": primary.get("website") or website,
-        "source_url": page_url,
+        "website": best_ver_url,
+        "source_url": best_ver_url or clean_fallback,
         "source_title": page_title,
         "qualification_status": primary.get("qualification_status", "qualified"),
         "confidence_score": primary.get("confidence_score", 0.85),
@@ -628,6 +636,12 @@ def process_pending_results(
                                 clean_li = cand_url
                                 break
 
+                lead_verification_url = (
+                    clean_verification_url(contact.get("website"))
+                    or clean_verification_url(contact.get("source_url"))
+                    or (clean_verification_url(final_url) if not is_generic_homepage(final_url) else None)
+                )
+
                 lead_data = LeadCreate(
                     name=cleaned_name,
                     email=clean_email,
@@ -640,8 +654,8 @@ def process_pending_results(
                     country=contact.get("country"),
                     phone_number=contact.get("phone_number"),
                     linkedin_url=clean_li,
-                    website=contact.get("website"),
-                    source_url=contact.get("source_url") or final_url,
+                    website=lead_verification_url,
+                    source_url=lead_verification_url or (clean_verification_url(final_url) if not is_generic_homepage(final_url) else None),
                     source_title=contact.get("source_title") or getattr(result, "result_title", None),
                     qualification_status="qualified",
                     confidence_score=max(0.80, contact.get("confidence_score", 0.85)),

@@ -393,7 +393,7 @@ def test_excel_export_includes_eight_critical_fields():
         "University / Institution",
         "Country",
         "LinkedIn URL",
-        "Institutional Webpage / Lab URL",
+        "Institutional Webpage / Source URL",
     ]
     assert headers[:8] == expected_eight
 
@@ -442,7 +442,7 @@ def test_csv_export_includes_eight_critical_fields():
         "LinkedIn Profile URL",
         "Academic Designation",
         "Specialization / Profession",
-        "Institutional Webpage / Lab URL",
+        "Institutional Webpage / Source URL",
     ]:
         assert expected_field in header_cols
 
@@ -454,7 +454,7 @@ def test_csv_export_includes_eight_critical_fields():
     uni_idx = header_cols.index("University")
     country_idx = header_cols.index("Country")
     li_idx = header_cols.index("LinkedIn Profile URL")
-    web_idx = header_cols.index("Institutional Webpage / Lab URL")
+    web_idx = header_cols.index("Institutional Webpage / Source URL")
 
     assert data_cols[name_idx] == "Dr. Rajesh Patel"
     assert data_cols[email_idx] == "rpatel@aiims.edu"

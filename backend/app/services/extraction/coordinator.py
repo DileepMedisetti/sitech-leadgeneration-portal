@@ -7,7 +7,9 @@ from app.services.extraction.cleaners import (
     clean_text,
     extract_country_from_html,
     extract_institution_from_html,
+    is_generic_homepage,
     normalize_email,
+    select_lead_verification_url,
 )
 from app.services.extraction.strategies import (
     DirectoryTableStrategy,
@@ -80,6 +82,21 @@ class LeadExtractionCoordinator:
             clean_email = normalize_email(raw_email) if raw_email else None
             cand["email"] = clean_email
 
+            # Select best verified source URL according to priority
+            best_ver_url, best_src_url = select_lead_verification_url(
+                direct_url=cand.get("website"),
+                page_url=page_url,
+                person_name=cand.get("name"),
+            )
+            cand["website"] = best_ver_url
+            cand["source_url"] = best_ver_url or best_src_url
+            cand["source_title"] = page_title
+
+            # Preserve evidence of source page
+            if cand.get("evidence") and isinstance(cand["evidence"], dict):
+                cand["evidence"]["extracted_from_page"] = page_url
+                cand["evidence"]["verification_url"] = best_ver_url
+
             # Form primary key
             if clean_email:
                 key = f"email:{clean_email}"
@@ -94,7 +111,7 @@ class LeadExtractionCoordinator:
                 existing_without_email = merged_contacts.pop(cand_name_key)
                 for fld in (
                     "phone_number", "linkedin_url", "profession",
-                    "research_specialization", "department", "website",
+                    "research_specialization", "department", "website", "source_url",
                 ):
                     if not cand.get(fld) and existing_without_email.get(fld):
                         cand[fld] = existing_without_email[fld]
@@ -102,10 +119,6 @@ class LeadExtractionCoordinator:
                 continue
 
             if key not in merged_contacts:
-                if not cand.get("website"):
-                    cand["website"] = page_url
-                cand["source_url"] = page_url
-                cand["source_title"] = page_title
                 if not cand.get("university") and detected_uni:
                     cand["university"] = detected_uni
                 if not cand.get("country") and detected_country:
@@ -125,10 +138,15 @@ class LeadExtractionCoordinator:
                     existing["research_specialization"] = cand["research_specialization"]
                 if not existing.get("department") and cand.get("department"):
                     existing["department"] = cand["department"]
-                if not existing.get("website") and cand.get("website"):
-                    existing["website"] = cand["website"]
-                elif cand.get("website") and cand["website"] != page_url and existing.get("website") == page_url:
-                    existing["website"] = cand["website"]
+
+                # Safe URL upgrade: upgrade if existing URL is empty/generic and candidate has specific profile URL
+                if cand.get("website") and not is_generic_homepage(cand["website"]):
+                    if not existing.get("website") or is_generic_homepage(existing.get("website")):
+                        existing["website"] = cand["website"]
+                if cand.get("source_url") and not is_generic_homepage(cand["source_url"]):
+                    if not existing.get("source_url") or is_generic_homepage(existing.get("source_url")):
+                        existing["source_url"] = cand["source_url"]
+
                 if cand.get("confidence_score", 0) > existing.get("confidence_score", 0):
                     existing["confidence_score"] = cand["confidence_score"]
                     existing["qualification_status"] = cand["qualification_status"]

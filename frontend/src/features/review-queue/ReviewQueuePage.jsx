@@ -222,6 +222,7 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
             page={page}
             totalPages={totalPages}
             totalItems={totalCount}
+            pageSize={10}
             onPageChange={setPage}
           />
         </div>

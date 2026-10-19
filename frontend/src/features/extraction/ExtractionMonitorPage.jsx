@@ -36,7 +36,7 @@ export default function ExtractionMonitorPage({ onNavigate: _onNavigate }) {
       const apiStatus = filter === 'all' ? undefined : filter;
       const res = await searchJobsApi.getResults(jobId, {
         page,
-        page_size: 20,
+        page_size: 25,
         status: apiStatus,
       });
       setResults(res.items || []);
@@ -526,6 +526,7 @@ export default function ExtractionMonitorPage({ onNavigate: _onNavigate }) {
           page={resultsPage}
           totalPages={resultsTotalPages}
           totalItems={resultsTotalCount}
+          pageSize={25}
           onPageChange={handlePageChange}
         />
       </div>

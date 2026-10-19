@@ -94,7 +94,7 @@ def test_generate_leads_excel_bytes_structure():
         "University / Institution",
         "Country",
         "LinkedIn URL",
-        "Institutional Webpage / Lab URL",
+        "Institutional Webpage / Source URL",
     ]
     assert "Lead ID" in header_row
 

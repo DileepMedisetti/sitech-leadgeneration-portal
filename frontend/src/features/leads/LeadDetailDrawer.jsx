@@ -20,6 +20,7 @@ import {
 import { leadsApi, reviewQueueApi } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
 import IdBadge from '../../components/ui/IdBadge';
+import { isGenericHomepage } from '../../utils/excelExport';
 
 const getInitialFormData = (lead) => ({
   name: lead?.name || '',
@@ -482,7 +483,7 @@ export default function LeadDetailDrawer({
               <FormField label="Department" name="department" value={formData.department} onChange={handleChange} />
               <FormField label="University / Institution" name="university" value={formData.university} onChange={handleChange} />
               <FormField label="Country" name="country" value={formData.country} onChange={handleChange} />
-              <FormField label="Institutional Webpage / Lab URL" name="website" value={formData.website} onChange={handleChange} />
+              <FormField label="Institutional Webpage / Source URL" name="website" value={formData.website} onChange={handleChange} />
               <FormField label="Phone Number" name="phone_number" value={formData.phone_number} onChange={handleChange} />
 
               <div className="form-group" style={{ marginBottom: 16 }}>
@@ -579,19 +580,38 @@ export default function LeadDetailDrawer({
                   </DetailItem>
                 )}
 
-                {lead.website && (
-                  <DetailItem icon={<Globe size={15} style={iconStyle} />} label="Institutional Webpage / Lab URL">
-                    <a
-                      href={lead.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                    >
-                      <span>{lead.website}</span>
-                      <ExternalLink size={11} />
-                    </a>
-                  </DetailItem>
-                )}
+                {(() => {
+                  const verificationUrl =
+                    lead.website && !isGenericHomepage(lead.website)
+                      ? lead.website
+                      : lead.source_url && !isGenericHomepage(lead.source_url)
+                      ? lead.source_url
+                      : null;
+
+                  return (
+                    <DetailItem icon={<Globe size={15} style={iconStyle} />} label="Institutional Webpage / Source URL">
+                      {verificationUrl ? (
+                        <a
+                          href={verificationUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            color: 'var(--text-primary)',
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          <span>{verificationUrl}</span>
+                          <ExternalLink size={11} />
+                        </a>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>Not available</span>
+                      )}
+                    </DetailItem>
+                  );
+                })()}
               </div>
 
               {/* SECTION 3: Institution and Location */}

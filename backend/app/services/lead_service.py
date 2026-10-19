@@ -139,7 +139,7 @@ def export_leads_to_csv(
         "LinkedIn Profile URL",
         "Academic Designation",
         "Specialization / Profession",
-        "Institutional Webpage / Lab URL",
+        "Institutional Webpage / Source URL",
         "Department",
         "Phone Number",
         "Qualification Status",
@@ -147,6 +147,8 @@ def export_leads_to_csv(
         "Source URL",
         "Created At",
     ])
+
+    from app.services.excel_export_service import get_lead_verification_url
 
     for lead in leads:
         writer.writerow([
@@ -158,7 +160,7 @@ def export_leads_to_csv(
             getattr(lead, "linkedin_url", "") or "",
             getattr(lead, "profession", "") or "",
             getattr(lead, "research_specialization", "") or "",
-            getattr(lead, "website", "") or "",
+            get_lead_verification_url(lead),
             getattr(lead, "department", "") or "",
             getattr(lead, "phone_number", "") or "",
             getattr(lead, "qualification_status", "") or "",

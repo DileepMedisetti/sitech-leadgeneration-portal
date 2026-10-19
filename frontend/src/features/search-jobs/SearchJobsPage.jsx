@@ -23,7 +23,7 @@ export default function SearchJobsPage({ onNavigate }) {
       setError(null);
       const res = await searchJobsApi.list({
         page,
-        page_size: 10,
+        page_size: 25,
         status: statusFilter || undefined,
       });
       setJobs(res.items);
@@ -165,6 +165,7 @@ export default function SearchJobsPage({ onNavigate }) {
             page={page}
             totalPages={totalPages}
             totalItems={totalCount}
+            pageSize={25}
             onPageChange={setPage}
           />
         </div>

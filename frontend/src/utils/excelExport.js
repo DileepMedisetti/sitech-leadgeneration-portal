@@ -372,6 +372,20 @@ export function generateSearchResultsExcelBlob(results) {
  * @param {Array<object>} leads List of Lead objects
  * @returns {Blob}
  */
+export function isGenericHomepage(url) {
+  if (!url || typeof url !== 'string') return true;
+  try {
+    const parsed = new URL(url.trim());
+    const path = parsed.pathname.replace(/\/+$/, '').toLowerCase();
+    if (['', '/index.html', '/index.htm', '/index.php', '/home', '/home.html', '/default.aspx'].includes(path)) {
+      if (!parsed.search && !parsed.hash) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export function generateLeadsExcelBlob(leads) {
   const headers = [
     'Name',
@@ -381,7 +395,7 @@ export function generateLeadsExcelBlob(leads) {
     'University / Institution',
     'Country',
     'LinkedIn URL',
-    'Institutional Webpage / Lab URL',
+    'Institutional Webpage / Source URL',
     'Lead ID',
     'Department',
     'Phone Number',
@@ -488,6 +502,10 @@ export function generateLeadsExcelBlob(leads) {
       ? lead.qualification_status.charAt(0).toUpperCase() + lead.qualification_status.slice(1)
       : '';
 
+    const verUrl = (lead.website && !isGenericHomepage(lead.website))
+      ? lead.website
+      : (lead.source_url && !isGenericHomepage(lead.source_url) ? lead.source_url : '');
+
     return [
       lead.name || '',
       lead.email || '',
@@ -496,7 +514,7 @@ export function generateLeadsExcelBlob(leads) {
       lead.university || '',
       lead.country || '',
       lead.linkedin_url || '',
-      lead.website || '',
+      verUrl,
       lead.id,
       lead.department || '',
       lead.phone_number || '',

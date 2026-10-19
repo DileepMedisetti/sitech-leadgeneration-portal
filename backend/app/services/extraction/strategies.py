@@ -575,6 +575,7 @@ class IndividualProfileStrategy:
 
         phone = _extract_phone_from_element(soup)
         linkedin = _extract_linkedin_from_element(soup, page_url, person_name=candidate_name)
+        direct_url = extract_direct_profile_url(soup, page_url, person_name=candidate_name) or page_url
         designation, specialization = extract_designation_and_specialization(soup, soup)
         if not designation:
             designation = _extract_designation_from_element(soup)
@@ -603,7 +604,7 @@ class IndividualProfileStrategy:
             research_specialization=specialization,
             phone=phone,
             linkedin=linkedin,
-            website=page_url,
+            website=direct_url,
             name_email_correlated=correlated,
             permit_department_contacts=permit_dept,
             requested_profession=req_prof,
@@ -616,7 +617,7 @@ class IndividualProfileStrategy:
             "research_specialization": specialization,
             "phone_number": phone,
             "linkedin_url": linkedin,
-            "website": page_url,
+            "website": direct_url,
             "qualification_status": status,
             "confidence_score": score,
             "qualification_reason": reason,

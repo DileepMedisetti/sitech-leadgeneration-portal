@@ -10,6 +10,19 @@ from sqlalchemy.orm import Session
 from app.models.lead import Lead
 from app.models.search_result import SearchResult
 from app.repositories.lead_repository import get_leads_paginated
+from app.services.extraction.cleaners import is_generic_homepage
+
+
+def get_lead_verification_url(lead: Any) -> str:
+    """Return the exact, verified source URL for a lead, avoiding generic homepages."""
+    website = getattr(lead, "website", None)
+    source_url = getattr(lead, "source_url", None)
+
+    if website and not is_generic_homepage(website):
+        return str(website)
+    if source_url and not is_generic_homepage(source_url):
+        return str(source_url)
+    return ""
 
 
 def sanitize_cell_value(val: Any) -> Any:
@@ -51,7 +64,7 @@ def generate_leads_excel_bytes(leads: list[Lead]) -> bytes:
         "University / Institution",
         "Country",
         "LinkedIn URL",
-        "Institutional Webpage / Lab URL",
+        "Institutional Webpage / Source URL",
         "Lead ID",
         "Department",
         "Phone Number",
@@ -107,15 +120,15 @@ def generate_leads_excel_bytes(leads: list[Lead]) -> bytes:
             sanitize_cell_value(lead.university),
             sanitize_cell_value(lead.country),
             sanitize_cell_value(lead.linkedin_url),
-            sanitize_cell_value(lead.website),
+            sanitize_cell_value(get_lead_verification_url(lead)),
             lead.id,
-            sanitize_cell_value(lead.department),
-            sanitize_cell_value(lead.phone_number),
-            sanitize_cell_value(lead.source_url),
-            sanitize_cell_value(lead.qualification_status.title() if lead.qualification_status else ""),
+            sanitize_cell_value(getattr(lead, "department", None)),
+            sanitize_cell_value(getattr(lead, "phone_number", None)),
+            sanitize_cell_value(getattr(lead, "source_url", None)),
+            sanitize_cell_value(lead.qualification_status.title() if getattr(lead, "qualification_status", None) else ""),
             conf_str,
-            sanitize_cell_value(lead.qualification_reason),
-            lead.search_job_id or "",
+            sanitize_cell_value(getattr(lead, "qualification_reason", None)),
+            getattr(lead, "search_job_id", "") or "",
             created_str,
         ]
 

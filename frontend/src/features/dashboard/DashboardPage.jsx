@@ -10,27 +10,88 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-import { dashboardApi } from '../../services/api-client';
+import { dashboardApi, searchJobsApi, leadsApi } from '../../services/api-client';
 import MetricCard from '../../components/ui/MetricCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import IdBadge from '../../components/ui/IdBadge';
+import Pagination from '../../components/ui/Pagination';
 
 export default function DashboardPage({ onNavigate }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Search Jobs pagination state
+  const [jobs, setJobs] = useState([]);
+  const [jobsPage, setJobsPage] = useState(1);
+  const [jobsTotalPages, setJobsTotalPages] = useState(1);
+  const [jobsTotalCount, setJobsTotalCount] = useState(0);
+
+  // Qualified Leads pagination state
+  const [leads, setLeads] = useState([]);
+  const [leadsPage, setLeadsPage] = useState(1);
+  const [leadsTotalPages, setLeadsTotalPages] = useState(1);
+  const [leadsTotalCount, setLeadsTotalCount] = useState(0);
+
   const fetchStats = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await dashboardApi.getStats();
-      setStats(data);
+      const [statsData, jobsRes, leadsRes] = await Promise.all([
+        dashboardApi.getStats(),
+        searchJobsApi.list({ page: 1, page_size: 25 }).catch(() => null),
+        leadsApi.list({ page: 1, page_size: 25, status: 'qualified' }).catch(() => null),
+      ]);
+      setStats(statsData);
+
+      if (jobsRes) {
+        setJobs(jobsRes.items || []);
+        setJobsTotalPages(jobsRes.total_pages || 1);
+        setJobsTotalCount(jobsRes.total || 0);
+      } else if (statsData.recent_jobs) {
+        setJobs(statsData.recent_jobs);
+        setJobsTotalPages(1);
+        setJobsTotalCount(statsData.recent_jobs.length);
+      }
+
+      if (leadsRes) {
+        setLeads(leadsRes.items || []);
+        setLeadsTotalPages(leadsRes.total_pages || 1);
+        setLeadsTotalCount(leadsRes.total || 0);
+      } else if (statsData.recent_qualified_leads) {
+        setLeads(statsData.recent_qualified_leads);
+        setLeadsTotalPages(1);
+        setLeadsTotalCount(statsData.recent_qualified_leads.length);
+      }
     } catch (err) {
       setError(err.message || 'Failed to load dashboard metrics.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleJobsPageChange = async (newPage) => {
+    setJobsPage(newPage);
+    try {
+      const res = await searchJobsApi.list({ page: newPage, page_size: 25 });
+      setJobs(res.items || []);
+      setJobsTotalPages(res.total_pages || 1);
+      setJobsTotalCount(res.total || 0);
+    } catch (err) {
+      console.error('Failed to change jobs page:', err);
+    }
+  };
+
+  const handleLeadsPageChange = async (newPage) => {
+    setLeadsPage(newPage);
+    try {
+      const res = await leadsApi.list({ page: newPage, page_size: 25, status: 'qualified' });
+      setLeads(res.items || []);
+      setLeadsTotalPages(res.total_pages || 1);
+      setLeadsTotalCount(res.total || 0);
+    } catch (err) {
+      console.error('Failed to change leads page:', err);
     }
   };
 
@@ -132,8 +193,9 @@ export default function DashboardPage({ onNavigate }) {
           </div>
         </div>
 
-        {stats.recent_jobs && stats.recent_jobs.length > 0 ? (
-          <div className="table-container">
+        {jobs && jobs.length > 0 ? (
+          <>
+            <div className="table-container">
             <table className="data-table jobs-table">
               <thead>
                 <tr>
@@ -145,7 +207,7 @@ export default function DashboardPage({ onNavigate }) {
                 </tr>
               </thead>
               <tbody>
-                {stats.recent_jobs.map((job) => {
+                {jobs.map((job) => {
                   const leadProgress = job.target_leads > 0
                     ? Math.min(100, Math.round((job.qualified_leads_found / job.target_leads) * 100))
                     : 0;
@@ -242,6 +304,15 @@ export default function DashboardPage({ onNavigate }) {
               </tbody>
             </table>
           </div>
+
+          <Pagination
+            page={jobsPage}
+            totalPages={jobsTotalPages}
+            totalItems={jobsTotalCount}
+            pageSize={25}
+            onPageChange={handleJobsPageChange}
+          />
+        </>
         ) : (
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '8px 0' }}>
             No search jobs created yet.
@@ -378,45 +449,55 @@ export default function DashboardPage({ onNavigate }) {
           </button>
         </div>
 
-        {stats.recent_qualified_leads && stats.recent_qualified_leads.length > 0 ? (
-          <div className="table-container">
-            <table className="data-table" style={{ minWidth: '750px' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: '95px' }}>Lead ID</th>
-                  <th style={{ minWidth: '160px' }}>Name</th>
-                  <th style={{ minWidth: '190px' }}>Email</th>
-                  <th style={{ minWidth: '160px' }}>Designation</th>
-                  <th style={{ minWidth: '180px' }}>University / Institution</th>
-                  <th style={{ width: '110px' }}>Country</th>
-                  <th style={{ width: '100px', textAlign: 'right' }}>Confidence</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recent_qualified_leads.map((lead) => (
-                  <tr key={lead.id}>
-                    <td style={{ verticalAlign: 'middle' }}>
-                      <IdBadge prefix="LEAD" id={lead.id} />
-                    </td>
-                    <td style={{ fontWeight: 600, color: 'var(--text-primary)', verticalAlign: 'middle' }}>
-                      {lead.name}
-                    </td>
-                    <td style={{ verticalAlign: 'middle' }}>
-                      <a href={`mailto:${lead.email}`}>{lead.email}</a>
-                    </td>
-                    <td style={{ verticalAlign: 'middle' }}>{lead.profession || '—'}</td>
-                    <td style={{ verticalAlign: 'middle' }}>{lead.university || '—'}</td>
-                    <td style={{ verticalAlign: 'middle' }}>{lead.country || '—'}</td>
-                    <td style={{ verticalAlign: 'middle', textAlign: 'right' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {lead.confidence_score ? `${Math.round(lead.confidence_score * 100)}%` : 'Verified'}
-                      </span>
-                    </td>
+        {leads && leads.length > 0 ? (
+          <>
+            <div className="table-container">
+              <table className="data-table" style={{ minWidth: '750px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: '95px' }}>Lead ID</th>
+                    <th style={{ minWidth: '160px' }}>Name</th>
+                    <th style={{ minWidth: '190px' }}>Email</th>
+                    <th style={{ minWidth: '160px' }}>Designation</th>
+                    <th style={{ minWidth: '180px' }}>University / Institution</th>
+                    <th style={{ width: '110px' }}>Country</th>
+                    <th style={{ width: '100px', textAlign: 'right' }}>Confidence</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {leads.map((lead) => (
+                    <tr key={lead.id}>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        <IdBadge prefix="LEAD" id={lead.id} />
+                      </td>
+                      <td style={{ fontWeight: 600, color: 'var(--text-primary)', verticalAlign: 'middle' }}>
+                        {lead.name}
+                      </td>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        <a href={`mailto:${lead.email}`}>{lead.email}</a>
+                      </td>
+                      <td style={{ verticalAlign: 'middle' }}>{lead.profession || '—'}</td>
+                      <td style={{ verticalAlign: 'middle' }}>{lead.university || '—'}</td>
+                      <td style={{ verticalAlign: 'middle' }}>{lead.country || '—'}</td>
+                      <td style={{ verticalAlign: 'middle', textAlign: 'right' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {lead.confidence_score ? `${Math.round(lead.confidence_score * 100)}%` : 'Verified'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <Pagination
+              page={leadsPage}
+              totalPages={leadsTotalPages}
+              totalItems={leadsTotalCount}
+              pageSize={25}
+              onPageChange={handleLeadsPageChange}
+            />
+          </>
         ) : (
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '8px 0' }}>
             No qualified leads yet. Run a search job or extract pending URLs to discover contacts.

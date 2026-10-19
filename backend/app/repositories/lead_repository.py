@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.lead import Lead
 from app.services.extraction.cleaners import (
     is_generic_contact_email,
+    is_generic_homepage,
     is_valid_email,
     normalize_linkedin_url,
 )
@@ -85,6 +86,15 @@ def enrich_existing_lead(
         ) and incoming_value is not None and str(incoming_value).strip():
             setattr(existing_lead, field, incoming_value)
             updated = True
+
+    # Safe URL upgrade: If existing URL is empty or generic homepage, and incoming is specific
+    for url_field in ("source_url", "website"):
+        curr_url = getattr(existing_lead, url_field, None)
+        inc_url = incoming_data.get(url_field)
+        if inc_url and not is_generic_homepage(inc_url):
+            if not curr_url or is_generic_homepage(curr_url):
+                setattr(existing_lead, url_field, inc_url)
+                updated = True
 
     # If incoming has a valid email and existing does not, attach it
     if not getattr(existing_lead, "email", None) and incoming_data.get("email"):

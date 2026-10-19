@@ -84,7 +84,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
 
   const fetchResults = async (page = 1) => {
     try {
-      const data = await searchJobsApi.getResults(jobId, { page, page_size: 15 });
+      const data = await searchJobsApi.getResults(jobId, { page, page_size: 25 });
       setResults(data.items);
       setResultsPage(data.page);
       setResultsTotalPages(data.total_pages);
@@ -96,7 +96,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
 
   const fetchLeads = async (page = 1) => {
     try {
-      const data = await searchJobsApi.getLeads(jobId, { page, page_size: 15 });
+      const data = await searchJobsApi.getLeads(jobId, { page, page_size: 25 });
       setLeads(data.items);
       setLeadsPage(data.page);
       setLeadsTotalPages(data.total_pages);
@@ -515,6 +515,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
             page={resultsPage}
             totalPages={resultsTotalPages}
             totalItems={resultsTotal}
+            pageSize={25}
             onPageChange={(p) => {
               setResultsPage(p);
               fetchResults(p);
@@ -623,6 +624,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
             page={leadsPage}
             totalPages={leadsTotalPages}
             totalItems={leadsTotal}
+            pageSize={25}
             onPageChange={(p) => {
               setLeadsPage(p);
               fetchLeads(p);

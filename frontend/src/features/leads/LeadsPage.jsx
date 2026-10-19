@@ -20,7 +20,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import LeadDetailDrawer from './LeadDetailDrawer';
 import IdBadge from '../../components/ui/IdBadge';
 import { COUNTRIES } from '../../data/countries';
-import { generateLeadsExcelBlob } from '../../utils/excelExport';
+import { generateLeadsExcelBlob, isGenericHomepage } from '../../utils/excelExport';
 
 export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
 
@@ -134,7 +134,7 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
       const res = await leadsApi.list({
 
         page,
-        page_size: 15,
+        page_size: 25,
         search: search.trim() || undefined,
         status: statusFilter || undefined,
         country: countryFilter || undefined,
@@ -451,7 +451,7 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                   <th style={{ width: '18%' }}>Designation & Specialization</th>
                   <th style={{ width: '14%' }}>Institution</th>
                   <th style={{ width: '8%' }}>Country</th>
-                  <th style={{ width: '120px' }}>Profile / Webpage</th>
+                  <th style={{ width: '150px' }}>Institutional Webpage</th>
                   <th style={{ width: '10%' }}>Status</th>
                   <th style={{ width: '7%' }}>Confidence</th>
                   <th style={{ textAlign: 'right', width: '85px' }}>Actions</th>
@@ -616,32 +616,41 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
                         </span>
                       </td>
 
-                      {/* 6. Institutional Webpage / Lab URL */}
+                      {/* 6. Institutional Webpage */}
                       <td>
-                        {lead.website ? (
-                          <a
-                            href={lead.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '12px',
-                              color: 'var(--text-primary)',
-                              textDecoration: 'underline',
-                              fontWeight: 500,
-                            }}
-                            title={lead.website}
-                          >
-                            <Globe size={12} style={{ flexShrink: 0 }} />
-                            <span>View Profile</span>
-                            <ExternalLink size={10} style={{ flexShrink: 0 }} />
-                          </a>
-                        ) : (
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>—</span>
-                        )}
+                        {(() => {
+                          const verificationUrl =
+                            lead.website && !isGenericHomepage(lead.website)
+                              ? lead.website
+                              : lead.source_url && !isGenericHomepage(lead.source_url)
+                              ? lead.source_url
+                              : null;
+
+                          return verificationUrl ? (
+                            <a
+                              href={verificationUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '12px',
+                                color: 'var(--text-primary)',
+                                textDecoration: 'underline',
+                                fontWeight: 500,
+                              }}
+                              title={verificationUrl}
+                            >
+                              <Globe size={12} style={{ flexShrink: 0 }} />
+                              <span>View Source</span>
+                              <ExternalLink size={10} style={{ flexShrink: 0 }} />
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Not available</span>
+                          );
+                        })()}
                       </td>
 
                       {/* 7. Qualification Status */}
@@ -690,6 +699,7 @@ export default function LeadsPage({ initialLeadId, onNavigate: _onNavigate }) {
             page={page}
             totalPages={totalPages}
             totalItems={totalCount}
+            pageSize={25}
             onPageChange={setPage}
           />
         </div>

@@ -576,6 +576,52 @@ EXPLICIT_ROLE_KEYWORDS = {
 }
 
 
+GENERIC_HOMEPAGE_PATHS = {
+    "",
+    "/",
+    "/index.html",
+    "/index.htm",
+    "/index.php",
+    "/home",
+    "/home.html",
+    "/home.htm",
+    "/home.php",
+    "/default.aspx",
+    "/default.asp",
+    "/default.html",
+    "/en",
+    "/en/",
+    "/en/index.html",
+    "/main",
+    "/main.html",
+    "/welcome",
+}
+
+
+def is_generic_homepage(url: str | None) -> bool:
+    """Check if a URL points merely to a generic domain root or homepage."""
+    if not url or not isinstance(url, str):
+        return True
+    clean_url = url.strip()
+    if not clean_url:
+        return True
+    try:
+        parsed = urlparse(clean_url)
+    except Exception:
+        return True
+
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return True
+
+    path = parsed.path.rstrip("/").lower()
+    if path in GENERIC_HOMEPAGE_PATHS:
+        # If there is no specific query string or fragment identifying a record
+        if not parsed.query and not parsed.fragment:
+            return True
+    return False
+
+
 def is_valid_profile_url(url: str | None) -> bool:
     """Validate whether a URL points to a legitimate web page rather than search, social media, or binary file."""
     if not url or not isinstance(url, str):
@@ -584,7 +630,11 @@ def is_valid_profile_url(url: str | None) -> bool:
     if not url.startswith(("http://", "https://")):
         return False
 
-    parsed = urlparse(url)
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+
     hostname = (parsed.hostname or "").lower()
     if not hostname:
         return False
@@ -600,6 +650,16 @@ def is_valid_profile_url(url: str | None) -> bool:
     return True
 
 
+def clean_verification_url(url: str | None) -> str | None:
+    """Validate and clean a verification URL. Returns None if invalid, generic homepage, or search engine."""
+    if not url or not isinstance(url, str):
+        return None
+    url = url.strip()
+    if not is_valid_profile_url(url) or is_generic_homepage(url):
+        return None
+    return url
+
+
 def extract_direct_profile_url(
     element: Any,
     page_url: str,
@@ -612,11 +672,11 @@ def extract_direct_profile_url(
       2. Anchor text containing profile/bio/lab keywords ('View Profile', 'Biography', etc.).
       3. Link href matching individual profile path pattern (/faculty/, /people/, /profile/, etc.).
       4. Anchor matching person's name in slug.
-      5. Element container ID / anchor fragment on current page.
-      6. Fallback to full page_url (never truncated to domain root).
+      5. Element container ID / anchor fragment on current page (if page is non-generic).
+      6. Fallback to full page_url only if not a generic homepage.
     """
     if element is None:
-        return page_url if is_valid_profile_url(page_url) else None
+        return page_url if (is_valid_profile_url(page_url) and not is_generic_homepage(page_url)) else None
 
     # Find all anchor tags with href
     anchors = element.find_all("a", href=True) if hasattr(element, "find_all") else []
@@ -634,7 +694,7 @@ def extract_direct_profile_url(
             continue
 
         resolved = urljoin(page_url, raw_href)
-        if not is_valid_profile_url(resolved):
+        if not is_valid_profile_url(resolved) or is_generic_homepage(resolved):
             continue
 
         a_text = a.get_text(" ", strip=True).lower()
@@ -675,14 +735,43 @@ def extract_direct_profile_url(
         candidate_links.sort(key=lambda x: x[0], reverse=True)
         return candidate_links[0][1]
 
-    # 5. Check if element itself has an ID for direct anchor navigation
+    # 5. Check if element itself has an ID for direct anchor navigation (non-generic base)
     element_id = element.get("id") if hasattr(element, "get") else None
-    if element_id and isinstance(element_id, str) and len(element_id) >= 2:
+    if element_id and isinstance(element_id, str) and len(element_id) >= 2 and not is_generic_homepage(page_url):
         clean_base = page_url.split("#", 1)[0]
         return f"{clean_base}#{element_id}"
 
-    # 6. Fallback to the exact page URL (never netloc)
-    return page_url if is_valid_profile_url(page_url) else None
+    # 6. Fallback to the exact page URL only if valid and not a generic homepage
+    return page_url if (is_valid_profile_url(page_url) and not is_generic_homepage(page_url)) else None
+
+
+def select_lead_verification_url(
+    direct_url: str | None,
+    page_url: str | None,
+    person_name: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Select the best verification URL following the mandatory 5-level priority order:
+    1. Individual institutional faculty/staff profile
+    2. Individual researcher/academic profile
+    3. Laboratory member or researcher profile
+    4. Department directory entry containing person's details
+    5. Another relevant official institutional webpage
+
+    Returns:
+        (verification_url, fallback_source_url)
+    """
+    clean_direct = clean_verification_url(direct_url)
+    clean_page = clean_verification_url(page_url)
+
+    # Priority 1-3: Direct profile or lab URL
+    if clean_direct:
+        return clean_direct, (clean_page or clean_direct)
+
+    # Priority 4-5: Department directory or relevant official institutional webpage
+    if clean_page:
+        return clean_page, clean_page
+
+    return None, None
 
 
 def clean_specialization(val: str | None) -> str | None:
