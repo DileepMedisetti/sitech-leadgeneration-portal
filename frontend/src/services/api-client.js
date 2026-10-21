@@ -338,3 +338,85 @@ export const settingsApi = {
   get: (options = {}) =>
     apiClient.get('/api/settings', options).then((res) => res.data),
 };
+
+// ==============================================================================
+// Audience API (Contacts & Lists)
+// ==============================================================================
+export const audienceApi = {
+  getContacts: (params = {}, options = {}) =>
+    apiClient
+      .get('/api/audience/contacts', {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+          search: params.search || undefined,
+          country: params.country || undefined,
+          university: params.university || undefined,
+          department: params.department || undefined,
+          profession: params.profession || undefined,
+          job_id: params.job_id || undefined,
+          sort_by: params.sort_by || undefined,
+          sort_order: params.sort_order || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  getContactFilters: (options = {}) =>
+    apiClient.get('/api/audience/contacts/filters', options).then((res) => res.data),
+
+  getLists: (params = {}, options = {}) =>
+    apiClient
+      .get('/api/audience/lists', {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+          search: params.search || undefined,
+          filter: params.filter || undefined,
+          updated_within: params.updated_within || undefined,
+          sort_by: params.sort_by || undefined,
+          sort_order: params.sort_order || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  createList: (data, options = {}) =>
+    apiClient.post('/api/audience/lists', data, options).then((res) => res.data),
+
+  getList: (id, options = {}) =>
+    apiClient.get(`/api/audience/lists/${id}`, options).then((res) => res.data),
+
+  updateList: (id, data, options = {}) =>
+    apiClient.patch(`/api/audience/lists/${id}`, data, options).then((res) => res.data),
+
+  deleteList: (id, options = {}) =>
+    apiClient.delete(`/api/audience/lists/${id}`, options).then((res) => res.data),
+
+  getListContacts: (id, params = {}, options = {}) =>
+    apiClient
+      .get(`/api/audience/lists/${id}/contacts`, {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+          search: params.search || undefined,
+          sort_by: params.sort_by || undefined,
+          sort_order: params.sort_order || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  addContactsToList: (id, leadIds, options = {}) =>
+    apiClient
+      .post(`/api/audience/lists/${id}/contacts`, { lead_ids: leadIds }, options)
+      .then((res) => res.data),
+
+  removeContactsFromList: (id, leadIds, options = {}) =>
+    apiClient
+      .delete(`/api/audience/lists/${id}/contacts`, {
+        data: { lead_ids: leadIds },
+        ...options,
+      })
+      .then((res) => res.data),
+};

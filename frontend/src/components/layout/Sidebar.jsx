@@ -5,6 +5,7 @@ import {
   Compass,
   Cpu,
   Users,
+  Contact,
   CheckSquare,
   BarChart2,
   Settings,
@@ -29,6 +30,7 @@ export default function Sidebar({
     { id: 'discovery', label: 'Discovery Engine', icon: Compass },
     { id: 'extraction', label: 'Extraction Monitor', icon: Cpu },
     { id: 'leads', label: 'Lead Management', icon: Users },
+    { id: 'audience', label: 'Audience', icon: Contact },
     { id: 'review-queue', label: 'Review Queue', icon: CheckSquare },
     { id: 'analytics', label: 'Analytics', icon: BarChart2 },
     { id: 'settings', label: 'Settings', icon: Settings },
@@ -193,7 +195,10 @@ export default function Sidebar({
 
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = currentTab === item.id;
+            const active =
+              currentTab === item.id ||
+              (item.id === 'audience' && currentTab === 'create-contact-list') ||
+              (item.id === 'jobs' && (currentTab === 'new-job' || currentTab === 'job-detail'));
             return (
               <div key={item.id} className="nav-btn-wrapper">
                 <button

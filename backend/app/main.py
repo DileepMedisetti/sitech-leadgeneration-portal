@@ -6,6 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.db.database import engine
 from app.routes.analytics import router as analytics_router
+from app.routes.audience import router as audience_router
 from app.routes.dashboard import router as dashboard_router
 from app.routes.lead_extraction import router as lead_extraction_router
 from app.routes.leads import router as leads_router
@@ -39,6 +40,7 @@ app.add_middleware(
 
 # Register routes
 app.include_router(dashboard_router)
+app.include_router(audience_router)
 app.include_router(leads_router)
 app.include_router(search_jobs_router)
 app.include_router(search_collection_router)

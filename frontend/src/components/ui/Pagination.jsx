@@ -1,54 +1,48 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-
-function getPageNumbers(currentPage, totalPages) {
-  if (totalPages <= 7) {
-    const pages = [];
-    for (let i = 1; i <= totalPages; i++) {
-      pages.push(i);
-    }
-    return pages;
-  }
-
-  if (currentPage <= 4) {
-    return [1, 2, 3, 4, 5, '...', totalPages];
-  }
-
-  if (currentPage >= totalPages - 3) {
-    return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-  }
-
-  return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
-}
+import { calculatePaginationRange, getPageNumbers } from '../../utils/pagination';
 
 export default function Pagination({
   page,
+  currentPage,
   totalPages,
   totalItems,
+  total,
   pageSize = 25,
+  itemsPerPage,
   onPageChange,
 }) {
-  if (!totalPages || totalPages <= 1 || (totalItems !== undefined && totalItems <= pageSize)) {
-    return null;
-  }
+  const {
+    activePage,
+    validTotalPages,
+    validTotalItems,
+    hasItemCount,
+    startRecord,
+    endRecord,
+  } = calculatePaginationRange({
+    page,
+    currentPage,
+    totalItems,
+    total,
+    totalPages,
+    pageSize,
+    itemsPerPage,
+  });
 
-  const pageNumbers = getPageNumbers(page, totalPages);
-  const hasItemCount = totalItems !== undefined && totalItems !== null;
-  const startRecord = hasItemCount ? (totalItems === 0 ? 0 : (page - 1) * pageSize + 1) : null;
-  const endRecord = hasItemCount ? Math.min(page * pageSize, totalItems) : null;
+  const pageNumbers = getPageNumbers(activePage, validTotalPages);
 
   return (
-    <div className="pagination-container">
+    <div className="pagination-container" role="navigation" aria-label="Pagination Navigation">
       <div className="pagination-info">
         {hasItemCount ? (
           <>
             Showing <span className="pagination-info-bold">{startRecord}–{endRecord}</span> of{' '}
-            <span className="pagination-info-bold">{totalItems}</span> records
+            <span className="pagination-info-bold">{validTotalItems}</span> records
           </>
         ) : (
           <>
-            Page <span className="pagination-info-bold">{page}</span> of{' '}
-            <span className="pagination-info-bold">{totalPages}</span>
+            Page <span className="pagination-info-bold">{activePage}</span> of{' '}
+            <span className="pagination-info-bold">{validTotalPages}</span>
           </>
         )}
       </div>
@@ -56,8 +50,8 @@ export default function Pagination({
       <div className="pagination-controls">
         <button
           type="button"
-          onClick={() => onPageChange(page - 1)}
-          disabled={page <= 1}
+          onClick={() => onPageChange && onPageChange(activePage - 1)}
+          disabled={activePage <= 1}
           className="pagination-btn"
           aria-label="Previous page"
         >
@@ -68,19 +62,20 @@ export default function Pagination({
         {pageNumbers.map((item, idx) => {
           if (item === '...') {
             return (
-              <span key={`ellipsis-${idx}`} className="pagination-ellipsis">
+              <span key={`ellipsis-${idx}`} className="pagination-ellipsis" aria-hidden="true">
                 &hellip;
               </span>
             );
           }
-          const isCurrent = item === page;
+          const isCurrent = item === activePage;
           return (
             <button
-              key={item}
+              key={`page-${item}`}
               type="button"
-              onClick={() => onPageChange(item)}
+              onClick={() => onPageChange && onPageChange(item)}
               className={`pagination-page-btn ${isCurrent ? 'active' : ''}`}
               aria-current={isCurrent ? 'page' : undefined}
+              aria-label={`Page ${item}`}
             >
               {item}
             </button>
@@ -89,8 +84,8 @@ export default function Pagination({
 
         <button
           type="button"
-          onClick={() => onPageChange(page + 1)}
-          disabled={page >= totalPages}
+          onClick={() => onPageChange && onPageChange(activePage + 1)}
+          disabled={activePage >= validTotalPages}
           className="pagination-btn"
           aria-label="Next page"
         >
