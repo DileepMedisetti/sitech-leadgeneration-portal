@@ -46,7 +46,7 @@ function LinkedInMark() {
         width: 17,
         height: 17,
         borderRadius: 3,
-        backgroundColor: '#18181b',
+        backgroundColor: '#0a66c2',
         color: '#ffffff',
         fontSize: 11,
         fontWeight: 800,
@@ -446,9 +446,9 @@ export default function LeadDetailDrawer({
             style={{
               margin: '14px 22px 0',
               padding: '12px 14px',
-              backgroundColor: 'var(--bg-subtle)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--warning-light)',
+              color: 'var(--warning-text)',
+              border: '1px solid var(--warning-border)',
               borderRadius: 'var(--radius-md)',
               fontSize: 12,
               display: 'flex',
@@ -456,7 +456,7 @@ export default function LeadDetailDrawer({
               alignItems: 'flex-start',
             }}
           >
-            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-primary)' }} />
+            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1, color: 'var(--warning-text)' }} />
             <div>
               <div style={{ fontWeight: 700, marginBottom: 2 }}>Suspicious Contact Detected</div>
               <div>

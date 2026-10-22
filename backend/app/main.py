@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -7,7 +6,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.db.database import engine
 from app.routes.analytics import router as analytics_router
 from app.routes.audience import router as audience_router
+from app.routes.campaigns import router as campaigns_router
 from app.routes.dashboard import router as dashboard_router
+from app.routes.deliverability import router as deliverability_router
 from app.routes.lead_extraction import router as lead_extraction_router
 from app.routes.leads import router as leads_router
 from app.routes.review_queue import router as review_queue_router
@@ -17,8 +18,8 @@ from app.routes.settings import router as settings_router
 
 app = FastAPI(
     title="Sitech Series — Lead Intelligence Portal",
-    description="API for academic lead discovery, accurate contact extraction, qualification, and review.",
-    version="2.0.0",
+    description="API for academic lead discovery, accurate contact extraction, qualification, and campaign deliverability.",
+    version="2.1.0",
 )
 
 # Enable CORS for frontend applications
@@ -41,6 +42,8 @@ app.add_middleware(
 # Register routes
 app.include_router(dashboard_router)
 app.include_router(audience_router)
+app.include_router(campaigns_router)
+app.include_router(deliverability_router)
 app.include_router(leads_router)
 app.include_router(search_jobs_router)
 app.include_router(search_collection_router)
@@ -55,7 +58,7 @@ def health_check():
     return {
         "status": "healthy",
         "service": "Sitech Series Lead Intelligence API",
-        "version": "2.0.0",
+        "version": "2.1.0",
     }
 
 

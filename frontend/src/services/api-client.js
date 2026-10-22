@@ -420,3 +420,121 @@ export const audienceApi = {
       })
       .then((res) => res.data),
 };
+
+// ==============================================================================
+// Campaigns API
+// ==============================================================================
+export const campaignsApi = {
+  list: (params = {}, options = {}) =>
+    apiClient
+      .get('/api/campaigns', {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+          status: params.status || undefined,
+          search: params.search || undefined,
+          sort_by: params.sort_by || undefined,
+          sort_order: params.sort_order || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  create: (data, options = {}) =>
+    apiClient.post('/api/campaigns', data, options).then((res) => res.data),
+
+  get: (id, options = {}) =>
+    apiClient.get(`/api/campaigns/${id}`, options).then((res) => res.data),
+
+  update: (id, data, options = {}) =>
+    apiClient.patch(`/api/campaigns/${id}`, data, options).then((res) => res.data),
+
+  delete: (id, options = {}) =>
+    apiClient.delete(`/api/campaigns/${id}`, options).then((res) => res.data),
+
+  getAudience: (id, options = {}) =>
+    apiClient.get(`/api/campaigns/${id}/audience`, options).then((res) => res.data),
+
+  selectAudience: (id, contactListIds, options = {}) =>
+    apiClient
+      .post(`/api/campaigns/${id}/audience`, { contact_list_ids: contactListIds }, options)
+      .then((res) => res.data),
+
+  getPreflight: (id, options = {}) =>
+    apiClient.get(`/api/campaigns/${id}/preflight`, options).then((res) => res.data),
+
+  launch: (id, payload, options = {}) =>
+    apiClient.post(`/api/campaigns/${id}/launch`, payload, options).then((res) => res.data),
+
+  pause: (id, options = {}) =>
+    apiClient.post(`/api/campaigns/${id}/pause`, null, options).then((res) => res.data),
+
+  resume: (id, options = {}) =>
+    apiClient.post(`/api/campaigns/${id}/resume`, null, options).then((res) => res.data),
+
+  cancel: (id, options = {}) =>
+    apiClient.post(`/api/campaigns/${id}/cancel`, null, options).then((res) => res.data),
+};
+
+// ==============================================================================
+// Deliverability Intelligence API
+// ==============================================================================
+export const deliverabilityApi = {
+  analyzeContent: (data, options = {}) =>
+    apiClient.post('/api/deliverability/analyze-content', data, options).then((res) => res.data),
+
+  analyzeCampaign: (campaignId, options = {}) =>
+    apiClient.post(`/api/deliverability/campaigns/${campaignId}/analyze`, null, options).then((res) => res.data),
+
+  getReport: (campaignId, options = {}) =>
+    apiClient.get(`/api/deliverability/campaigns/${campaignId}/report`, options).then((res) => res.data),
+
+  getHistory: (campaignId, limit = 10, options = {}) =>
+    apiClient
+      .get(`/api/deliverability/campaigns/${campaignId}/history`, {
+        params: { limit },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  compareReports: (reportAId, reportBId, options = {}) =>
+    apiClient
+      .get('/api/deliverability/reports/compare', {
+        params: { report_a: reportAId, report_b: reportBId },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  runPlacementTest: (campaignId, payload = {}, options = {}) =>
+    apiClient
+      .post(`/api/deliverability/campaigns/${campaignId}/placement-test`, payload, options)
+      .then((res) => res.data),
+
+  listPlacementTests: (campaignId, params = {}, options = {}) =>
+    apiClient
+      .get(`/api/deliverability/campaigns/${campaignId}/placement-tests`, {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  getPlacementTest: (testId, options = {}) =>
+    apiClient.get(`/api/deliverability/placement-tests/${testId}`, options).then((res) => res.data),
+
+  getMLPrediction: (campaignId, options = {}) =>
+    apiClient.get(`/api/deliverability/campaigns/${campaignId}/ml-prediction`, options).then((res) => res.data),
+
+  listMLModels: (options = {}) =>
+    apiClient.get('/api/deliverability/ml/models', options).then((res) => res.data),
+
+  trainMLModel: (modelVersion = 'v1.0.0', options = {}) =>
+    apiClient
+      .post('/api/deliverability/ml/train', null, {
+        params: { model_version: modelVersion },
+        ...options,
+      })
+      .then((res) => res.data),
+};

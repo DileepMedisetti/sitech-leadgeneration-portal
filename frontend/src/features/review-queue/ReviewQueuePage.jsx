@@ -91,9 +91,9 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
           style={{
             padding: '12px 16px',
             borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--bg-subtle)',
-            border: '1px solid var(--border-color)',
-            color: 'var(--text-primary)',
+            backgroundColor: banner.type === 'success' ? 'var(--success-light)' : banner.type === 'danger' ? 'var(--danger-light)' : 'var(--info-light)',
+            border: `1px solid ${banner.type === 'success' ? 'var(--success-border)' : banner.type === 'danger' ? 'var(--danger-border)' : 'var(--info-border)'}`,
+            color: banner.type === 'success' ? 'var(--success-text)' : banner.type === 'danger' ? 'var(--danger-text)' : 'var(--info-text)',
             marginBottom: '16px',
             fontSize: '13px',
             display: 'flex',
@@ -107,7 +107,7 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
             style={{
               background: 'none',
               border: 'none',
-              color: 'var(--text-muted)',
+              color: 'inherit',
               cursor: 'pointer',
               fontSize: '16px',
               padding: '0 4px',

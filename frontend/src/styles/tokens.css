@@ -5,79 +5,84 @@
   --header-height: 64px;
 
   /* Typography Stack */
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 
-  /* Color Palette - Professional Monochrome Theme */
-  --bg-app: #fafafa;
+  /* Color Palette - Premium Enterprise SaaS Theme */
+  --bg-app: #f8fafc;
   --bg-card: #ffffff;
-  --bg-subtle: #f4f4f5;
+  --bg-subtle: #f1f5f9;
   --bg-sidebar: #ffffff;
-  --bg-sidebar-hover: #f4f4f5;
-  --bg-sidebar-active: #18181b;
-  --bg-sidebar-border: #e4e4e7;
+  --bg-sidebar-hover: #f1f5f9;
+  --bg-sidebar-active: #eff6ff;
+  --bg-sidebar-border: #e2e8f0;
 
-  --text-primary: #18181b;
-  --text-secondary: #3f3f46;
-  --text-muted: #71717a;
-  --text-subtle: #a1a1aa;
-  --text-sidebar: #52525b;
-  --text-sidebar-active: #ffffff;
-  --text-sidebar-hover: #18181b;
+  /* Typography Colors */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+  --text-sidebar: #475569;
+  --text-sidebar-active: #1d4ed8;
+  --text-sidebar-hover: #0f172a;
 
-  /* Primary Brand: Clean Monochrome Black */
-  --primary: #18181b;
-  --primary-hover: #27272a;
-  --primary-active: #09090b;
-  --primary-light: #f4f4f5;
-  --primary-border: #e4e4e7;
-  --primary-text: #18181b;
+  /* Primary Brand: Sitech Blue Visual Identity */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-active: #1e40af;
+  --primary-light: #eff6ff;
+  --primary-border: #bfdbfe;
+  --primary-text: #1d4ed8;
 
-  /* Secondary: Neutral Slate */
-  --secondary: #27272a;
-  --secondary-hover: #3f3f46;
-  --secondary-light: #f4f4f5;
-  --secondary-border: #e4e4e7;
-  --secondary-text: #18181b;
+  /* Secondary: Refined Slate */
+  --secondary: #475569;
+  --secondary-hover: #334155;
+  --secondary-light: #f8fafc;
+  --secondary-border: #e2e8f0;
+  --secondary-text: #1e293b;
 
-  /* Status Colors - Professional Monochrome */
-  --success: #18181b;
-  --success-light: #f4f4f5;
-  --success-border: #d4d4d8;
-  --success-text: #18181b;
+  /* Accessible Semantic Status Colors */
+  --success: #10b981;
+  --success-hover: #059669;
+  --success-light: #ecfdf5;
+  --success-border: #a7f3d0;
+  --success-text: #065f46;
 
-  --warning: #52525b;
-  --warning-light: #fafafa;
-  --warning-border: #e4e4e7;
-  --warning-text: #27272a;
+  --warning: #f59e0b;
+  --warning-hover: #d97706;
+  --warning-light: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-text: #92400e;
 
-  --danger: #18181b;
-  --danger-light: #f4f4f5;
-  --danger-border: #18181b;
-  --danger-text: #18181b;
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-light: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-text: #991b1b;
 
-  --info: #3f3f46;
-  --info-light: #f4f4f5;
-  --info-border: #d4d4d8;
-  --info-text: #18181b;
+  --info: #3b82f6;
+  --info-hover: #2563eb;
+  --info-light: #eff6ff;
+  --info-border: #bfdbfe;
+  --info-text: #1e40af;
 
   /* Neutral Borders & Surfaces */
-  --border-color: #e4e4e7;
-  --border-subtle: #f4f4f5;
-  --border-hover: #d4d4d8;
-  --border-focus: #18181b;
-  --surface-hover: #f4f4f5;
-  --surface-active: #e4e4e7;
-  --focus-ring: 0 0 0 2px rgba(24, 24, 27, 0.2);
-  --focus-ring-danger: 0 0 0 2px rgba(24, 24, 27, 0.3);
+  --border-color: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --border-hover: #cbd5e1;
+  --border-focus: #2563eb;
+  --surface-hover: #f8fafc;
+  --surface-active: #f1f5f9;
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.18);
+  --focus-ring-danger: 0 0 0 3px rgba(239, 68, 68, 0.2);
 
   /* Modern Micro-Elevation Shadows */
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.04);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.03);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.07), 0 8px 10px -6px rgb(0 0 0 / 0.03);
-  --shadow-card-hover: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+  --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.07), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 1px 3px 0 rgba(15, 23, 42, 0.04);
 
   /* Corner Radii */
   --radius-xs: 4px;

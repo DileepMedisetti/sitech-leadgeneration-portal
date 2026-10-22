@@ -10,27 +10,30 @@ export default function Header({
 }) {
   return (
     <header className="header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0, flex: 1 }}>
         {/* Mobile Hamburger Toggle */}
         <button
           onClick={onToggleMobileSidebar}
           className="btn btn-secondary btn-sm btn-icon"
           id="mobile-menu-btn"
           aria-label="Open Navigation Menu"
-          style={{ display: 'none' }}
+          style={{ display: 'none', flexShrink: 0 }}
         >
           <Menu size={18} />
         </button>
 
-        <div>
+        <div style={{ minWidth: 0, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <h1
             style={{
-              fontSize: '17px',
-              fontWeight: 700,
+              fontSize: '18px',
+              fontWeight: 800,
               margin: 0,
               color: 'var(--text-primary)',
-              letterSpacing: '-0.3px',
-              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.25,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
             }}
           >
             {title}
@@ -38,10 +41,14 @@ export default function Header({
           {subtitle && (
             <p
               style={{
-                fontSize: '12px',
+                fontSize: '12.5px',
                 color: 'var(--text-muted)',
                 margin: '2px 0 0 0',
-                lineHeight: 1.2,
+                lineHeight: 1.35,
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
               {subtitle}
@@ -50,25 +57,28 @@ export default function Header({
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, marginLeft: 'auto' }}>
         {/* SerpApi Credit Protection Badge */}
         <div
           style={{
-            display: 'flex',
+            display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
             backgroundColor: 'var(--primary-light)',
             border: '1px solid var(--primary-border)',
-            padding: '4px 10px',
+            padding: '5px 12px',
             borderRadius: 'var(--radius-full)',
-            fontSize: '11px',
+            fontSize: '11.5px',
             color: 'var(--primary-text)',
             fontWeight: 600,
-            letterSpacing: '0.02em',
+            letterSpacing: '0.01em',
+            boxShadow: 'var(--shadow-xs)',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
           title="Queries are deduplicated via SHA-256 caching. Webpage contact extraction consumes 0 SerpApi credits."
         >
-          <ShieldCheck size={14} color="var(--primary)" />
+          <ShieldCheck size={14} color="var(--primary)" strokeWidth={2.2} />
           <span>SerpApi Guard Active</span>
         </div>
 
@@ -79,6 +89,15 @@ export default function Header({
             className="btn btn-secondary btn-sm"
             title="Refresh current workspace data"
             disabled={isRefreshing}
+            style={{
+              height: '32px',
+              padding: '0 12px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
           >
             <RefreshCw
               size={13}

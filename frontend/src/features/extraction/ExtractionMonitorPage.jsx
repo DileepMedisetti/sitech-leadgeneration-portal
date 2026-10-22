@@ -227,10 +227,10 @@ export default function ExtractionMonitorPage({ onNavigate: _onNavigate }) {
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="card-header">
           <span className="card-title">
-            <Cpu size={18} color="var(--text-primary)" />
+            <Cpu size={18} color="var(--primary)" />
             Direct HTML Extraction Monitor
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-primary)', backgroundColor: 'var(--bg-subtle)', padding: '4px 10px', borderRadius: '9999px', border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--primary)', backgroundColor: 'var(--primary-light)', padding: '4px 10px', borderRadius: '9999px', border: '1px solid var(--primary-border)', fontWeight: 500 }}>
             <ShieldCheck size={14} />
             <span>Direct Webpage Parsing • 0 SerpApi Credits</span>
           </div>
@@ -352,27 +352,27 @@ export default function ExtractionMonitorPage({ onNavigate: _onNavigate }) {
       {/* Queue Status Breakdown */}
       {selectedJob && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '20px' }}>
-          <div className="card" style={{ margin: 0, textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Pending URLs</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div className="card" style={{ margin: 0, textAlign: 'center', borderTop: '3px solid var(--warning)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pending URLs</div>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--warning-text)', marginTop: '4px' }}>
               {selectedJob.pending_results_count}
             </div>
           </div>
-          <div className="card" style={{ margin: 0, textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Processed & Extracted</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div className="card" style={{ margin: 0, textAlign: 'center', borderTop: '3px solid var(--success)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Processed & Extracted</div>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--success-text)', marginTop: '4px' }}>
               {selectedJob.processed_results_count}
             </div>
           </div>
-          <div className="card" style={{ margin: 0, textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Skipped (No Contact)</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+          <div className="card" style={{ margin: 0, textAlign: 'center', borderTop: '3px solid var(--text-subtle)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Skipped (No Contact)</div>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-secondary)', marginTop: '4px' }}>
               {selectedJob.skipped_results_count}
             </div>
           </div>
-          <div className="card" style={{ margin: 0, textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Failed (HTTP 403 / Net)</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-muted)' }}>
+          <div className="card" style={{ margin: 0, textAlign: 'center', borderTop: '3px solid var(--danger)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Failed (HTTP 403 / Net)</div>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--danger-text)', marginTop: '4px' }}>
               {selectedJob.failed_results_count}
             </div>
           </div>
