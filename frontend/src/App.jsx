@@ -9,13 +9,94 @@ import JobDetailPage from './features/search-jobs/JobDetailPage';
 import DiscoveryPage from './features/discovery/DiscoveryPage';
 import ExtractionMonitorPage from './features/extraction/ExtractionMonitorPage';
 import LeadsPage from './features/leads/LeadsPage';
+import AudiencePage from './features/audience/AudiencePage';
+import CreateListPage from './features/audience/pages/CreateListPage';
 import ReviewQueuePage from './features/review-queue/ReviewQueuePage';
 import AnalyticsPage from './features/analytics/AnalyticsPage';
 import SettingsPage from './features/settings/SettingsPage';
 
+function getRouteFromPath(pathname) {
+  const clean = (pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+  if (
+    clean === '/audience/lists/new' ||
+    clean === '/audience/new-list' ||
+    clean === '/audience/create-list'
+  ) {
+    return { tab: 'create-contact-list', param: null };
+  }
+  if (clean.startsWith('/audience/lists/')) {
+    const listId = clean.split('/')[3];
+    return {
+      tab: 'audience',
+      param: { listId: Number(listId) || listId, tab: 'lists' },
+    };
+  }
+  if (clean === '/audience' || clean === '/audience/contacts' || clean === '/audience/lists') {
+    const subtab = clean.endsWith('/lists') ? 'lists' : 'contacts';
+    return { tab: 'audience', param: { tab: subtab } };
+  }
+  if (clean === '/jobs/new' || clean === '/new-job') {
+    return { tab: 'new-job', param: null };
+  }
+  if (clean.startsWith('/jobs/')) {
+    const jid = clean.split('/')[2];
+    return { tab: 'job-detail', param: Number(jid) || jid };
+  }
+  if (clean === '/jobs') return { tab: 'jobs', param: null };
+  if (clean === '/discovery') return { tab: 'discovery', param: null };
+  if (clean === '/extraction') return { tab: 'extraction', param: null };
+  if (clean === '/leads') return { tab: 'leads', param: null };
+  if (clean === '/review-queue') return { tab: 'review-queue', param: null };
+  if (clean === '/analytics') return { tab: 'analytics', param: null };
+  if (clean === '/settings') return { tab: 'settings', param: null };
+  return { tab: 'dashboard', param: null };
+}
+
+function getPathFromRoute(tab, param) {
+  switch (tab) {
+    case 'create-contact-list':
+      return '/audience/lists/new';
+    case 'audience':
+      if (param && typeof param === 'object') {
+        if (param.listId) return `/audience/lists/${param.listId}`;
+        if (param.tab === 'lists') return '/audience/lists';
+        return '/audience';
+      }
+      if (typeof param === 'number' || typeof param === 'string') {
+        return `/audience/lists/${param}`;
+      }
+      return '/audience';
+    case 'new-job':
+      return '/jobs/new';
+    case 'job-detail':
+      return `/jobs/${param}`;
+    case 'jobs':
+      return '/jobs';
+    case 'discovery':
+      return '/discovery';
+    case 'extraction':
+      return '/extraction';
+    case 'leads':
+      return '/leads';
+    case 'review-queue':
+      return '/review-queue';
+    case 'analytics':
+      return '/analytics';
+    case 'settings':
+      return '/settings';
+    case 'dashboard':
+    default:
+      return '/';
+  }
+}
+
 export default function App() {
-  const [currentTab, setCurrentTab] = useState('dashboard');
-  const [activeParam, setActiveParam] = useState(null);
+  const [currentTab, setCurrentTab] = useState(() => {
+    return getRouteFromPath(window.location.pathname).tab;
+  });
+  const [activeParam, setActiveParam] = useState(() => {
+    return getRouteFromPath(window.location.pathname).param;
+  });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -52,11 +133,31 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const navigate = (tab, param = null) => {
+  // Listen to popstate (Browser Back / Forward buttons)
+  useEffect(() => {
+    const handlePopState = () => {
+      const route = getRouteFromPath(window.location.pathname);
+      setCurrentTab(route.tab);
+      setActiveParam(route.param);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigate = (tab, param = null, replace = false) => {
     setCurrentTab(tab);
     setActiveParam(param);
     setMobileSidebarOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    const targetPath = getPathFromRoute(tab, param);
+    if (window.location.pathname !== targetPath) {
+      if (replace) {
+        window.history.replaceState({ tab, param }, '', targetPath);
+      } else {
+        window.history.pushState({ tab, param }, '', targetPath);
+      }
+    }
   };
 
   const getPageMeta = () => {
@@ -95,6 +196,16 @@ export default function App() {
         return {
           title: 'Lead Management',
           subtitle: 'Verified academic faculty contacts with structured evidence provenance',
+        };
+      case 'create-contact-list':
+        return {
+          title: 'Create Contact List',
+          subtitle: 'Segment verified eligible faculty contacts into a dedicated outreach list',
+        };
+      case 'audience':
+        return {
+          title: 'Audience Management',
+          subtitle: 'Segment verified eligible faculty contacts and manage curated outreach lists',
         };
       case 'review-queue':
         return {
@@ -153,6 +264,12 @@ export default function App() {
           {currentTab === 'extraction' && <ExtractionMonitorPage onNavigate={navigate} />}
           {currentTab === 'leads' && (
             <LeadsPage initialLeadId={activeParam} onNavigate={navigate} />
+          )}
+          {currentTab === 'audience' && (
+            <AudiencePage onNavigate={navigate} activeParam={activeParam} />
+          )}
+          {currentTab === 'create-contact-list' && (
+            <CreateListPage onNavigate={navigate} />
           )}
           {currentTab === 'review-queue' && <ReviewQueuePage onNavigate={navigate} />}
           {currentTab === 'analytics' && <AnalyticsPage onNavigate={navigate} />}
