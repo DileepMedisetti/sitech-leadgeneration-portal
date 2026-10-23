@@ -11,6 +11,9 @@ import ExtractionMonitorPage from './features/extraction/ExtractionMonitorPage';
 import LeadsPage from './features/leads/LeadsPage';
 import AudiencePage from './features/audience/AudiencePage';
 import CreateListPage from './features/audience/pages/CreateListPage';
+import CampaignsPage from './features/campaigns/CampaignsPage';
+import CreateCampaignPage from './features/campaigns/CreateCampaignPage';
+import CampaignDetailPage from './features/campaigns/CampaignDetailPage';
 import ReviewQueuePage from './features/review-queue/ReviewQueuePage';
 import AnalyticsPage from './features/analytics/AnalyticsPage';
 import SettingsPage from './features/settings/SettingsPage';
@@ -35,6 +38,14 @@ function getRouteFromPath(pathname) {
     const subtab = clean.endsWith('/lists') ? 'lists' : 'contacts';
     return { tab: 'audience', param: { tab: subtab } };
   }
+  if (clean === '/campaigns/new' || clean === '/campaigns/create') {
+    return { tab: 'create-campaign', param: null };
+  }
+  if (clean.startsWith('/campaigns/')) {
+    const cid = clean.split('/')[2];
+    return { tab: 'campaign-detail', param: Number(cid) || cid };
+  }
+  if (clean === '/campaigns') return { tab: 'campaigns', param: null };
   if (clean === '/jobs/new' || clean === '/new-job') {
     return { tab: 'new-job', param: null };
   }
@@ -66,6 +77,12 @@ function getPathFromRoute(tab, param) {
         return `/audience/lists/${param}`;
       }
       return '/audience';
+    case 'create-campaign':
+      return '/campaigns/new';
+    case 'campaign-detail':
+      return `/campaigns/${param}`;
+    case 'campaigns':
+      return '/campaigns';
     case 'new-job':
       return '/jobs/new';
     case 'job-detail':
@@ -207,6 +224,21 @@ export default function App() {
           title: 'Audience Management',
           subtitle: 'Segment verified eligible faculty contacts and manage curated outreach lists',
         };
+      case 'campaigns':
+        return {
+          title: 'Campaigns & Deliverability',
+          subtitle: 'Email campaigns with spam-risk analysis, inbox placement testing, and ML forecasts',
+        };
+      case 'create-campaign':
+        return {
+          title: 'Create Email Campaign',
+          subtitle: 'Guided campaign creation with deliverability intelligence and placement verification',
+        };
+      case 'campaign-detail':
+        return {
+          title: activeParam ? `Campaign Workspace · #${String(activeParam).padStart(3, '0')}` : 'Campaign Workspace',
+          subtitle: 'Inspect campaign details, audience snapshot, and deliverability reports',
+        };
       case 'review-queue':
         return {
           title: 'Candidate Review Queue',
@@ -270,6 +302,13 @@ export default function App() {
           )}
           {currentTab === 'create-contact-list' && (
             <CreateListPage onNavigate={navigate} />
+          )}
+          {currentTab === 'campaigns' && <CampaignsPage onNavigate={navigate} />}
+          {currentTab === 'create-campaign' && (
+            <CreateCampaignPage onNavigate={navigate} />
+          )}
+          {currentTab === 'campaign-detail' && (
+            <CampaignDetailPage campaignId={activeParam} onNavigate={navigate} />
           )}
           {currentTab === 'review-queue' && <ReviewQueuePage onNavigate={navigate} />}
           {currentTab === 'analytics' && <AnalyticsPage onNavigate={navigate} />}

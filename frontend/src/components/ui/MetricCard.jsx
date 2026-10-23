@@ -1,41 +1,87 @@
-
 import React from 'react';
 
-export default function MetricCard({ title, value, subtitle, icon: Icon, color = 'var(--text-primary)' }) {
+export default function MetricCard({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  color,
+}) {
+  const iconColor = color || 'var(--primary)';
+
   return (
-    <div className="card" style={{ padding: '18px 20px', margin: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+    <div
+      className="card"
+      style={{
+        padding: '20px 22px',
+        margin: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-color)',
+        backgroundColor: '#ffffff',
+        boxShadow: 'var(--shadow-xs)',
+        transition: 'all var(--transition-fast)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+        <span
+          style={{
+            fontSize: '13px',
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            letterSpacing: '-0.01em',
+          }}
+        >
           {title}
         </span>
         {Icon && (
           <div
             style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '6px',
-              backgroundColor: 'var(--bg-subtle)',
-              border: '1px solid var(--border-color)',
+              width: '36px',
+              height: '36px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--primary-light)',
+              border: '1px solid var(--primary-border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
-            <Icon size={16} color={color || 'var(--text-primary)'} />
+            <Icon size={18} color={iconColor} strokeWidth={2.2} />
           </div>
         )}
       </div>
 
-
-      <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
-        {value}
-      </div>
-
-      {subtitle && (
-        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-          {subtitle}
+      <div>
+        <div
+          style={{
+            fontSize: '26px',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.03em',
+            lineHeight: 1.15,
+          }}
+        >
+          {value}
         </div>
-      )}
+
+        {subtitle && (
+          <div
+            style={{
+              fontSize: '12px',
+              color: 'var(--text-muted)',
+              marginTop: '5px',
+              lineHeight: 1.35,
+              fontWeight: 500,
+            }}
+          >
+            {subtitle}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -79,8 +79,8 @@ export default function SearchJobsPage({ onNavigate }) {
       {loading ? (
         <LoadingSpinner text="Loading search jobs..." />
       ) : error ? (
-        <div className="card" style={{ borderLeft: '4px solid var(--border-focus)', backgroundColor: 'var(--bg-subtle)' }}>
-          <p style={{ color: 'var(--text-primary)', margin: 0 }}>{error}</p>
+        <div className="alert-banner alert-banner-danger" style={{ marginBottom: '16px' }}>
+          {error}
         </div>
       ) : jobs.length === 0 ? (
         <EmptyState

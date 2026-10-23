@@ -407,7 +407,7 @@ export default function CreateListPage({ onNavigate, onSuccess }) {
           >
             <div>
               <h2 style={{ fontSize: '15px', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
-                2. Select Contacts <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted)' }}>(Optional)</span>
+                2. Select Contacts <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-muted)' }}></span>
               </h2>
               <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
                 Select verified eligible contacts to enroll immediately. You can also add more contacts later.

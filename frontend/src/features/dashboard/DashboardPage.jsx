@@ -126,28 +126,28 @@ export default function DashboardPage({ onNavigate }) {
           value={stats.total_leads}
           subtitle="All contacts across jobs"
           icon={Users}
-          color="var(--text-primary)"
+          color="var(--primary)"
         />
         <MetricCard
           title="Qualified Leads"
           value={stats.qualified_leads}
           subtitle="Verified academic profiles"
           icon={CheckCircle}
-          color="var(--text-primary)"
+          color="var(--success)"
         />
         <MetricCard
           title="Review Queue"
           value={stats.review_leads}
           subtitle="Ambiguous candidates"
           icon={Clock}
-          color="var(--text-primary)"
+          color="var(--warning)"
         />
         <MetricCard
           title="Efficiency Ratio"
           value={`${stats.qualified_leads_per_request} leads`}
           subtitle={`Per SerpApi credit (${stats.serpapi_requests_used} used)`}
           icon={Zap}
-          color="var(--text-primary)"
+          color="var(--info)"
         />
       </div>
 

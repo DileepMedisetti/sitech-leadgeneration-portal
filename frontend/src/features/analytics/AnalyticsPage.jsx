@@ -46,28 +46,28 @@ export default function AnalyticsPage() {
           value={efficiency.qualified_leads}
           subtitle={`Out of ${efficiency.total_leads} total contacts`}
           icon={Zap}
-          color="var(--text-primary)"
+          color="var(--success)"
         />
         <MetricCard
           title="SerpApi Requests"
           value={efficiency.serpapi_requests_used}
           subtitle="Total discovery requests consumed"
           icon={BarChart2}
-          color="var(--text-primary)"
+          color="var(--warning)"
         />
         <MetricCard
           title="Leads Per Credit"
           value={`${efficiency.leads_per_request}x`}
           subtitle="Target metric for discovery efficiency"
           icon={Zap}
-          color="var(--text-primary)"
+          color="var(--primary)"
         />
         <MetricCard
           title="Discovered URLs"
           value={efficiency.total_urls_discovered}
           subtitle="Pages parsed by extraction engine"
           icon={Globe}
-          color="var(--text-primary)"
+          color="var(--info)"
         />
       </div>
 
