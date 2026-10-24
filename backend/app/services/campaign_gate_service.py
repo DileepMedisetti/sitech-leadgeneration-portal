@@ -65,12 +65,34 @@ def evaluate_campaign_preflight(
             blockers.append("Email HTML content cannot be empty.")
         if not content.from_email.strip():
             blockers.append("Sender from_email address is required.")
+        else:
+            from app.services.sender_eligibility_service import validate_sender_eligibility
+            is_sender_ok, sender_msg = validate_sender_eligibility(db, content.from_email)
+            if not is_sender_ok:
+                blockers.append(sender_msg)
+                checks.append(
+                    PreflightCheckItem(
+                        category="sender",
+                        label="Sender Identity & Provider Readiness",
+                        status="blocked",
+                        detail=sender_msg,
+                    )
+                )
+            else:
+                checks.append(
+                    PreflightCheckItem(
+                        category="sender",
+                        label="Sender Identity & Provider Readiness",
+                        status="passed",
+                        detail=f"Verified sender identity: {content.from_name} <{content.from_email}>",
+                    )
+                )
 
         checks.append(
             PreflightCheckItem(
                 category="content",
                 label="Content & Sender Details",
-                status="blocked" if blockers else "passed",
+                status="blocked" if any(b for b in blockers if "Subject" in b or "content" in b or "from_email" in b) else "passed",
                 detail=f"Subject: '{content.subject}' | From: {content.from_name} <{content.from_email}>",
             )
         )

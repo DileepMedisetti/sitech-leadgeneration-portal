@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/utils/pagination.test.js src/features/campaigns/choose-contacts.test.js",
+    "test": "node --test src/utils/pagination.test.js src/features/campaigns/choose-contacts.test.js src/features/auth/auth-logic.test.js src/features/campaigns/navigation-sanitization.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

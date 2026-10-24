@@ -114,7 +114,7 @@ export default function DiscoveryPage({ onNavigate }) {
             </div>
 
             {selectedJob && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', backgroundColor: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-md)', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', backgroundColor: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-md)', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
                 <div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Qualified Leads</div>
                   <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -176,7 +176,7 @@ export default function DiscoveryPage({ onNavigate }) {
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
                 <Shield size={14} color="var(--primary)" />
                 <span>Deterministic query cache prevents duplicate API credit consumption</span>

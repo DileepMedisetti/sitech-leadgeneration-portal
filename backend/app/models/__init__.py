@@ -16,6 +16,9 @@ from app.models.deliverability import (
     MLModelRegistry,
     MLPredictionLog,
 )
+from app.models.user import User
+from app.models.otp_challenge import OtpChallenge
+from app.models.email_account import EmailAccount
 
 __all__ = [
     "Lead",
@@ -33,4 +36,7 @@ __all__ = [
     "PlacementTestSeedResult",
     "MLModelRegistry",
     "MLPredictionLog",
+    "User",
+    "OtpChallenge",
+    "EmailAccount",
 ]

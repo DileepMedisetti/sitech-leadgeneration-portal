@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Search, ChevronUp, ChevronDown, RotateCcw, Columns } from 'lucide-react';
 import { ALL_COLUMNS, DEFAULT_VISIBLE_COLUMNS } from '../columnConstants';
 
@@ -15,6 +15,17 @@ export default function ColumnSelectorModal({
     const hidden = ALL_COLUMNS.map((c) => c.id).filter((id) => !visibleColumns.includes(id));
     return [...visibleColumns, ...hidden];
   });
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

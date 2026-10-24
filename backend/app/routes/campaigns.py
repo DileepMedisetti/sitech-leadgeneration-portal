@@ -36,11 +36,40 @@ from app.services.campaign_service import (
     transition_campaign_status,
     update_campaign_details,
 )
+from app.api.dependencies.current_user import get_optional_current_user
+from app.models.user import User
+from app.schemas.email_account import SenderIdentityResponse
+from app.services.sender_eligibility_service import get_eligible_sender_accounts
 from app.services.deliverability.analyzer_service import get_latest_campaign_report
 from app.services.ml.inference_service import predict_campaign_placement
 from app.services.placement.placement_service import get_latest_placement_test
 
 router = APIRouter(prefix="/api/campaigns", tags=["Campaigns"])
+
+
+@router.get("/sender-identities", response_model=list[SenderIdentityResponse])
+def get_campaign_sender_identities_endpoint(
+    current_user: User | None = Depends(get_optional_current_user),
+    db: Session = Depends(get_db),
+):
+    """Retrieve eligible verified sender email accounts for campaign outreach."""
+    user_id = current_user.id if current_user else 1
+    if current_user:
+        from app.services.email_account_service import ensure_primary_email_account
+        ensure_primary_email_account(db, current_user)
+        db.commit()
+    senders = get_eligible_sender_accounts(db, user_id)
+    return [
+        SenderIdentityResponse(
+            id=s.id,
+            email=s.email_address,
+            name=s.from_name,
+            verified=s.verification_status == "verified",
+            provider_status=s.provider_status,
+            is_eligible=True,
+        )
+        for s in senders
+    ]
 
 
 @router.get("", response_model=PaginatedCampaignsResponse)

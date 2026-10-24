@@ -1,27 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Send,
   Calendar,
   Clock,
   Globe,
-  Info,
+  AlertTriangle,
   CheckCircle2,
 } from 'lucide-react';
-
-const COMMON_TIMEZONES = [
-  { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
-  { value: 'America/New_York', label: 'Eastern Time (US & Canada)' },
-  { value: 'America/Chicago', label: 'Central Time (US & Canada)' },
-  { value: 'America/Denver', label: 'Mountain Time (US & Canada)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (US & Canada)' },
-  { value: 'Europe/London', label: 'London, Edinburgh (GMT/BST)' },
-  { value: 'Europe/Paris', label: 'Paris, Berlin, Rome (CET/CEST)' },
-  { value: 'Asia/Dubai', label: 'Dubai, Abu Dhabi (GST)' },
-  { value: 'Asia/Kolkata', label: 'India Standard Time (IST)' },
-  { value: 'Asia/Singapore', label: 'Singapore, Hong Kong (SGT/HKT)' },
-  { value: 'Asia/Tokyo', label: 'Tokyo, Seoul (JST/KST)' },
-  { value: 'Australia/Sydney', label: 'Sydney, Melbourne (AEST/AEDT)' },
-];
+import { COMMON_TIMEZONES } from '../campaignConstants';
 
 export default function ScheduleStep({
   sendImmediately,
@@ -32,245 +18,197 @@ export default function ScheduleStep({
   setScheduledAtTime,
   timezoneName,
   setTimezoneName,
+  fieldErrors = {},
+  clearFieldError,
 }) {
-  const strategies = [
-    {
-      id: 'immediately',
-      title: 'Send immediately',
-      desc: 'Campaign proceeds directly toward dispatch after final review and deliverability preflight validation.',
-      icon: Send,
-      isSelected: sendImmediately,
-      onSelect: () => {
-        setSendImmediately(true);
-      },
-    },
-    {
-      id: 'scheduled',
-      title: 'Schedule for later',
-      desc: 'Specify a future calendar date, time, and timezone for automated durable background dispatch.',
-      icon: Calendar,
-      isSelected: !sendImmediately,
-      onSelect: () => {
-        setSendImmediately(false);
-        if (!scheduledAtDate) {
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          setScheduledAtDate(tomorrow.toISOString().split('T')[0]);
-        }
-      },
-    },
-  ];
+  // Compute minimum selectable date (today in YYYY-MM-DD)
+  const todayString = useMemo(() => {
+    return new Date().toISOString().split('T')[0];
+  }, []);
+
+  const handleSelectImmediately = () => {
+    setSendImmediately(true);
+    if (clearFieldError) clearFieldError('schedule');
+  };
+
+  const handleSelectScheduled = () => {
+    setSendImmediately(false);
+    if (!scheduledAtDate) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setScheduledAtDate(tomorrow.toISOString().split('T')[0]);
+    }
+    if (!scheduledAtTime) {
+      setScheduledAtTime('09:00');
+    }
+    if (clearFieldError) clearFieldError('schedule');
+  };
 
   return (
-    <div
-      className="campaign-card campaign-card-padded"
-      style={{
-        maxWidth: '820px',
-        margin: '0 auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '28px',
-      }}
-    >
-      {/* Centered Heading */}
-      <div>
-        <h2 style={{ margin: '0 0 6px 0', fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
-          When to send
-        </h2>
-        <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>
-          Choose whether to launch your campaign immediately or schedule it for a verified future delivery window.
-        </p>
-      </div>
+    <div className="campaign-step-container">
+      <div className="campaign-card campaign-card-padded campaign-schedule-card">
+        {/* Section Heading */}
+        <div className="campaign-section-header campaign-section-header-centered">
+          <h2 className="campaign-section-title">Delivery Schedule</h2>
+          <p className="campaign-section-subtitle">
+            Choose whether to dispatch your outreach campaign immediately or schedule it for a verified future delivery window.
+          </p>
+        </div>
 
-      {/* Exactly Two Selectable Strategy Cards */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '20px',
-        }}
-      >
-        {strategies.map((strat) => {
-          const Icon = strat.icon;
-          return (
-            <div
-              key={strat.id}
-              onClick={strat.onSelect}
-              style={{
-                backgroundColor: strat.isSelected ? '#eff6ff' : '#ffffff',
-                border: '1.5px solid',
-                borderColor: strat.isSelected ? '#2563eb' : '#cbd5e1',
-                borderRadius: '14px',
-                padding: '24px 20px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                transition: 'all 0.18s ease',
-                boxShadow: strat.isSelected ? '0 4px 14px rgba(37, 99, 235, 0.12)' : '0 1px 3px rgba(0,0,0,0.02)',
-              }}
-              onMouseEnter={(e) => {
-                if (!strat.isSelected) {
-                  e.currentTarget.style.borderColor = '#94a3b8';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!strat.isSelected) {
-                  e.currentTarget.style.borderColor = '#cbd5e1';
-                }
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '12px',
-                    backgroundColor: strat.isSelected ? '#dbeafe' : '#f8fafc',
-                    color: strat.isSelected ? '#2563eb' : '#64748b',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '16px',
-                  }}
-                >
-                  <Icon size={24} />
-                </div>
-
-                <h3 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                  {strat.title}
-                </h3>
-                <p style={{ margin: 0, fontSize: '13px', color: '#64748b', lineHeight: 1.45 }}>
-                  {strat.desc}
-                </p>
-              </div>
-
-              <div
-                style={{
-                  marginTop: '18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  color: strat.isSelected ? '#2563eb' : '#94a3b8',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                }}
-              >
-                {strat.isSelected ? (
-                  <>
-                    <CheckCircle2 size={16} /> Selected
-                  </>
-                ) : (
-                  'Click to select'
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Future Scheduling Controls (when Schedule for Later is selected) */}
-      {!sendImmediately && (
-        <div
-          style={{
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '18px',
-          }}
-        >
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
-            Configure Dispatch Date & Timezone
+        {fieldErrors.schedule && (
+          <div className="campaign-inline-alert campaign-inline-alert-danger" role="alert">
+            <AlertTriangle size={16} />
+            <span>{fieldErrors.schedule}</span>
           </div>
+        )}
 
+        {/* Two Selectable Option Cards */}
+        <div className="campaign-schedule-options-grid">
+          {/* Option 1: Send Immediately */}
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '16px',
+            role="button"
+            tabIndex={0}
+            onClick={handleSelectImmediately}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleSelectImmediately();
+              }
             }}
+            className={`campaign-schedule-option-card ${
+              sendImmediately ? 'option-card-selected' : ''
+            }`}
           >
-            {/* Date */}
-            <div>
-              <label className="campaign-label">
-                Delivery Date
-              </label>
-              <input
-                type="date"
-                className="campaign-input"
-                min={new Date().toISOString().split('T')[0]}
-                value={scheduledAtDate}
-                onChange={(e) => setScheduledAtDate(e.target.value)}
-              />
+            <div className="campaign-schedule-option-header">
+              <div className="campaign-schedule-icon-badge">
+                <Send size={18} />
+              </div>
+              <div className="campaign-schedule-radio-outer">
+                {sendImmediately && <div className="campaign-schedule-radio-inner" />}
+              </div>
             </div>
+            <h3 className="campaign-schedule-option-title">Send Immediately</h3>
+            <p className="campaign-schedule-option-desc">
+              Campaign proceeds directly toward dispatch after final review and deliverability preflight validation.
+            </p>
+          </div>
 
-            {/* Time */}
-            <div>
-              <label className="campaign-label">
-                Delivery Time
-              </label>
-              <input
-                type="time"
-                className="campaign-input"
-                value={scheduledAtTime}
-                onChange={(e) => setScheduledAtTime(e.target.value)}
-              />
+          {/* Option 2: Schedule for Later */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={handleSelectScheduled}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleSelectScheduled();
+              }
+            }}
+            className={`campaign-schedule-option-card ${
+              !sendImmediately ? 'option-card-selected' : ''
+            }`}
+          >
+            <div className="campaign-schedule-option-header">
+              <div className="campaign-schedule-icon-badge">
+                <Calendar size={18} />
+              </div>
+              <div className="campaign-schedule-radio-outer">
+                {!sendImmediately && <div className="campaign-schedule-radio-inner" />}
+              </div>
             </div>
-
-            {/* Timezone */}
-            <div>
-              <label className="campaign-label">
-                Timezone
-              </label>
-              <select
-                className="campaign-select"
-                value={timezoneName}
-                onChange={(e) => setTimezoneName(e.target.value)}
-              >
-                {COMMON_TIMEZONES.map((tz) => (
-                  <option key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <h3 className="campaign-schedule-option-title">Schedule for Later</h3>
+            <p className="campaign-schedule-option-desc">
+              Specify a future calendar date, time, and timezone for automated background dispatch.
+            </p>
           </div>
         </div>
-      )}
 
-      {/* Contextual Information Panel */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '12px',
-          padding: '16px 20px',
-          backgroundColor: '#eff6ff',
-          border: '1px solid #bfdbfe',
-          borderRadius: '12px',
-          fontSize: '13px',
-          color: '#1e40af',
-          lineHeight: 1.5,
-        }}
-      >
-        <Info size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-        <div>
-          {sendImmediately ? (
-            <span>
-              <strong>Immediate Dispatch:</strong> Your outreach will be queued and sent immediately upon explicit confirmation in the Review step. Preflight deliverability checks and audience eligibility are evaluated before sending.
-            </span>
-          ) : (
-            <span>
-              <strong>Scheduled Dispatch:</strong> This campaign will be scheduled for{' '}
-              <strong>
-                {scheduledAtDate || 'selected date'} at {scheduledAtTime || '09:00'} ({timezoneName})
-              </strong>
-              . Normalized UTC timestamps will be stored. You can pause or cancel the schedule anytime before delivery begins.
-            </span>
-          )}
-        </div>
+        {/* When Scheduling is Selected: Expanded Date/Time Configuration */}
+        {!sendImmediately && (
+          <div className="campaign-scheduled-config-box">
+            <div className="campaign-scheduled-config-header">
+              <Calendar size={16} className="campaign-scheduled-config-icon" />
+              <span className="campaign-scheduled-config-title">
+                Configure Future Dispatch Window
+              </span>
+            </div>
+
+            <div className="campaign-scheduled-fields-grid">
+              {/* Send Date Input */}
+              <div className="campaign-field-group">
+                <label htmlFor="scheduled-date-input" className="campaign-label">
+                  Send Date <span className="campaign-label-required">*</span>
+                </label>
+                <div className="campaign-input-with-icon">
+                  <Calendar size={15} className="campaign-input-inner-icon" />
+                  <input
+                    id="scheduled-date-input"
+                    type="date"
+                    min={todayString}
+                    className="campaign-input campaign-input-icon-padded"
+                    value={scheduledAtDate}
+                    onChange={(e) => {
+                      setScheduledAtDate(e.target.value);
+                      if (clearFieldError) clearFieldError('schedule');
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Send Time Input */}
+              <div className="campaign-field-group">
+                <label htmlFor="scheduled-time-input" className="campaign-label">
+                  Send Time <span className="campaign-label-required">*</span>
+                </label>
+                <div className="campaign-input-with-icon">
+                  <Clock size={15} className="campaign-input-inner-icon" />
+                  <input
+                    id="scheduled-time-input"
+                    type="time"
+                    className="campaign-input campaign-input-icon-padded"
+                    value={scheduledAtTime}
+                    onChange={(e) => {
+                      setScheduledAtTime(e.target.value);
+                      if (clearFieldError) clearFieldError('schedule');
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Timezone Dropdown */}
+              <div className="campaign-field-group campaign-field-full">
+                <label htmlFor="scheduled-timezone-select" className="campaign-label">
+                  Timezone
+                </label>
+                <div className="campaign-input-with-icon">
+                  <Globe size={15} className="campaign-input-inner-icon" />
+                  <select
+                    id="scheduled-timezone-select"
+                    className="campaign-select campaign-input-icon-padded"
+                    value={timezoneName}
+                    onChange={(e) => setTimezoneName(e.target.value)}
+                  >
+                    {COMMON_TIMEZONES.map((tz) => (
+                      <option key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Scheduled Dispatch Confirmation Helper Note */}
+            <div className="campaign-schedule-info-banner">
+              <CheckCircle2 size={16} className="campaign-schedule-info-icon" />
+              <div className="campaign-schedule-info-text">
+                Outreach emails will be queued and dispatched automatically on{' '}
+                <strong>{scheduledAtDate || 'selected date'}</strong> at{' '}
+                <strong>{scheduledAtTime || '09:00'}</strong> ({timezoneName}).
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

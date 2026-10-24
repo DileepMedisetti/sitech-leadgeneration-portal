@@ -253,6 +253,15 @@ export default function LeadDetailDrawer({
     }
   };
 
+  // Lock body scroll when drawer is open
+  useEffect(() => {
+    const orig = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = orig;
+    };
+  }, []);
+
   // Format confidence percentage strictly or display em dash (never "Verified")
   const formatConfidence = (score) => {
     if (score === null || score === undefined || score === '') return '—';

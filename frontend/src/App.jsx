@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ModalProvider } from './context/ModalContext';
 
+import LoginPage from './features/auth/pages/LoginPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import SearchJobsPage from './features/search-jobs/SearchJobsPage';
 import CreateJobPage from './features/search-jobs/CreateJobPage';
@@ -14,12 +17,20 @@ import CreateListPage from './features/audience/pages/CreateListPage';
 import CampaignsPage from './features/campaigns/CampaignsPage';
 import CreateCampaignPage from './features/campaigns/CreateCampaignPage';
 import CampaignDetailPage from './features/campaigns/CampaignDetailPage';
+import EmailAccountsPage from './features/email-accounts/EmailAccountsPage';
 import ReviewQueuePage from './features/review-queue/ReviewQueuePage';
 import AnalyticsPage from './features/analytics/AnalyticsPage';
 import SettingsPage from './features/settings/SettingsPage';
+import LoadingSpinner from './components/ui/LoadingSpinner';
 
 function getRouteFromPath(pathname) {
   const clean = (pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+  if (clean === '/login') {
+    return { tab: 'login', param: null };
+  }
+  if (clean === '/email-accounts') {
+    return { tab: 'email-accounts', param: null };
+  }
   if (
     clean === '/audience/lists/new' ||
     clean === '/audience/new-list' ||
@@ -65,6 +76,10 @@ function getRouteFromPath(pathname) {
 
 function getPathFromRoute(tab, param) {
   switch (tab) {
+    case 'login':
+      return '/login';
+    case 'email-accounts':
+      return '/email-accounts';
     case 'create-contact-list':
       return '/audience/lists/new';
     case 'audience':
@@ -107,7 +122,8 @@ function getPathFromRoute(tab, param) {
   }
 }
 
-export default function App() {
+function AppShell() {
+  const { isAuthenticated, isLoading } = useAuth();
   const [currentTab, setCurrentTab] = useState(() => {
     return getRouteFromPath(window.location.pathname).tab;
   });
@@ -117,137 +133,191 @@ export default function App() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Persistent sidebar collapse state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem('sitech_sidebar_collapsed') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const toggleSidebarCollapse = () => {
-    setIsSidebarCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem('sitech_sidebar_collapsed', String(next));
-      } catch (e) {
-        console.error(e);
-      }
-      return next;
-    });
-  };
-
-  // Keyboard shortcut to toggle sidebar: Ctrl+[ or Cmd+[
+  // Clear any legacy permanent open sidebar state from localStorage
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === '[') {
-        e.preventDefault();
-        toggleSidebarCollapse();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    try {
+      localStorage.removeItem('sitech_sidebar_collapsed');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const navBlockerRef = useRef(null);
+  const previousRouteRef = useRef({ tab: 'dashboard', param: null });
+
+  const registerNavBlocker = useCallback((blockerFn) => {
+    navBlockerRef.current = blockerFn;
   }, []);
 
   // Listen to popstate (Browser Back / Forward buttons)
   useEffect(() => {
-    const handlePopState = () => {
-      const route = getRouteFromPath(window.location.pathname);
-      setCurrentTab(route.tab);
-      setActiveParam(route.param);
+    const handlePopState = (e) => {
+      const route = (e.state && typeof e.state.tab === 'string')
+        ? e.state
+        : getRouteFromPath(window.location.pathname);
+
+      const safeTab = typeof route.tab === 'string' ? route.tab : 'dashboard';
+      const safeParam = route.param || null;
+
+      if (navBlockerRef.current) {
+        const isBlocked = navBlockerRef.current(safeTab, safeParam);
+        if (isBlocked) {
+          // Re-push current path so user remains here until confirmed
+          const currentPath = getPathFromRoute(currentTab, activeParam);
+          window.history.pushState({ tab: currentTab, param: activeParam }, '', currentPath);
+          return;
+        }
+      }
+      if (currentTab !== safeTab || activeParam !== safeParam) {
+        previousRouteRef.current = { tab: currentTab, param: activeParam };
+      }
+      setCurrentTab(safeTab);
+      setActiveParam(safeParam);
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [currentTab, activeParam]);
 
-  const navigate = (tab, param = null, replace = false) => {
-    setCurrentTab(tab);
-    setActiveParam(param);
+  const navigate = (tab, param = null, replace = false, bypassBlocker = false) => {
+    // 1. Sanitize 'tab' argument: NEVER allow an Event or non-string object to be used as route tab
+    let safeTab = 'dashboard';
+    if (typeof tab === 'string' && tab.trim().length > 0) {
+      safeTab = tab.trim();
+    } else if (tab && typeof tab === 'object' && typeof tab.tab === 'string' && tab.tab.trim().length > 0) {
+      safeTab = tab.tab.trim();
+    }
+
+    // 2. Sanitize 'param' argument: ensure it is strictly serializable by structuredClone/history.pushState
+    let safeParam = null;
+    if (param !== null && param !== undefined) {
+      if (typeof param === 'string' || typeof param === 'number' || typeof param === 'boolean') {
+        safeParam = param;
+      } else if (
+        typeof param === 'object' &&
+        !(param instanceof Event) &&
+        !param.nativeEvent &&
+        !param.target &&
+        !param._reactName
+      ) {
+        try {
+          JSON.stringify(param);
+          safeParam = param;
+        } catch {
+          safeParam = null;
+        }
+      }
+    }
+
+    if (!bypassBlocker && navBlockerRef.current) {
+      const isBlocked = navBlockerRef.current(safeTab, safeParam);
+      if (isBlocked) {
+        return false;
+      }
+    }
+
+    // Track previous valid route before switching
+    if (currentTab !== safeTab || activeParam !== safeParam) {
+      previousRouteRef.current = { tab: currentTab, param: activeParam };
+    }
+
+    setCurrentTab(safeTab);
+    setActiveParam(safeParam);
     setMobileSidebarOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    const targetPath = getPathFromRoute(tab, param);
+    const targetPath = getPathFromRoute(safeTab, safeParam);
     if (window.location.pathname !== targetPath) {
+      const historyState = { tab: safeTab, param: safeParam };
       if (replace) {
-        window.history.replaceState({ tab, param }, '', targetPath);
+        window.history.replaceState(historyState, '', targetPath);
       } else {
-        window.history.pushState({ tab, param }, '', targetPath);
+        window.history.pushState(historyState, '', targetPath);
       }
     }
+    return true;
   };
 
   const getPageMeta = () => {
     switch (currentTab) {
+      case 'login':
+        return {
+          title: 'Sign In',
+          subtitle: 'Sitech Series Workspace Authentication',
+        };
       case 'dashboard':
         return {
           title: 'Dashboard Overview',
-          subtitle: 'Live conversion rates, active search jobs, and recent academic discoveries',
+          subtitle: 'Operational pipeline metrics, throughput, qualification yield, and deliverability status',
         };
       case 'jobs':
         return {
-          title: 'Search Jobs Management',
-          subtitle: 'Configure search plans, monitor request budgets, and inspect progress',
+          title: 'Search Jobs',
+          subtitle: 'Configure SerpApi-driven discovery runs targeting academic researchers and faculty profiles',
         };
       case 'new-job':
         return {
-          title: 'Create Search Job',
-          subtitle: 'Define target universities, academic departments, and SerpApi budgets',
+          title: 'New Search Job',
+          subtitle: 'Set keywords, criteria, SerpApi budget cap, and target lead volume',
         };
       case 'job-detail':
         return {
-          title: activeParam ? `Search Job Workspace · Job ${String(activeParam).padStart(3, '0')}` : 'Search Job Workspace',
-          subtitle: 'Collect results, trigger extraction, and inspect discovered contacts',
+          title: 'Job Inspection & Results',
+          subtitle: 'Extracted academic prospects, qualification metrics, and extraction errors',
         };
       case 'discovery':
         return {
           title: 'Discovery Engine',
-          subtitle: 'Targeted Google Search query execution with deterministic SHA-256 caching',
+          subtitle: 'Search configuration, query formulation, and automated scraping workflows',
         };
       case 'extraction':
         return {
           title: 'Extraction Monitor',
-          subtitle: 'Zero-credit webpage contact parsing, faculty card detection, and retry policies',
+          subtitle: 'Live webpage contact scraping health, credit efficiency, and parsing telemetry',
         };
       case 'leads':
         return {
           title: 'Lead Management',
-          subtitle: 'Verified academic faculty contacts with structured evidence provenance',
-        };
-      case 'create-contact-list':
-        return {
-          title: 'Create Contact List',
-          subtitle: 'Segment verified eligible faculty contacts into a dedicated outreach list',
+          subtitle: 'Curate, filter, edit, and export qualified academic contacts to Excel spreadsheets',
         };
       case 'audience':
         return {
           title: 'Audience Management',
-          subtitle: 'Segment verified eligible faculty contacts and manage curated outreach lists',
+          subtitle: 'Organize verified faculty leads into targeted outreach contact lists and segments',
+        };
+      case 'create-contact-list':
+        return {
+          title: 'Create Contact List',
+          subtitle: 'Curate and organize verified academic contacts into a dedicated outreach list',
         };
       case 'campaigns':
         return {
-          title: 'Campaigns & Deliverability',
-          subtitle: 'Email campaigns with spam-risk analysis, inbox placement testing, and ML forecasts',
+          title: 'Email Campaigns',
+          subtitle: 'Design, schedule, and evaluate targeted academic email outreach campaigns',
         };
       case 'create-campaign':
         return {
           title: 'Create Email Campaign',
-          subtitle: 'Guided campaign creation with deliverability intelligence and placement verification',
+          subtitle: 'Configure sender identity, responsive HTML template, targeted audience lists, and deliverability preflight',
         };
       case 'campaign-detail':
         return {
-          title: activeParam ? `Campaign Workspace · #${String(activeParam).padStart(3, '0')}` : 'Campaign Workspace',
-          subtitle: 'Inspect campaign details, audience snapshot, and deliverability reports',
+          title: 'Campaign Performance & Intelligence',
+          subtitle: 'Placement testing reports, audience delivery telemetry, and machine learning placement forecasts',
+        };
+      case 'email-accounts':
+        return {
+          title: 'Email Accounts',
+          subtitle: 'Manage verified sender identities and delivery providers for outreach campaigns',
         };
       case 'review-queue':
         return {
-          title: 'Candidate Review Queue',
-          subtitle: 'Human-in-the-loop verification for ambiguous candidate contacts',
+          title: 'Review Queue',
+          subtitle: 'Human-in-the-loop validation for borderline academic qualifications and ambiguous contacts',
         };
       case 'analytics':
         return {
-          title: 'System Analytics',
-          subtitle: 'Lead quality distributions, credit efficiency ratios, and institution breakdown',
+          title: 'Analytics & Reporting',
+          subtitle: 'Academic domain coverage, university distribution, and SerpApi credit consumption history',
         };
       case 'settings':
         return {
@@ -262,27 +332,59 @@ export default function App() {
     }
   };
 
+  // 1. Initial Session Loading Screen
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#0f172a',
+          color: '#ffffff',
+          gap: '16px',
+        }}
+      >
+        <LoadingSpinner size="lg" />
+        <div style={{ fontSize: '14px', fontWeight: 600, color: '#94a3b8' }}>
+          Initializing Sitech Series Workspace...
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated Protected Route Enforcer: render Login Page
+  if (!isAuthenticated) {
+    return <LoginPage onNavigate={navigate} />;
+  }
+
+  // 3. Authenticated: if currently on login route, redirect to dashboard
+  if (currentTab === 'login') {
+    navigate('dashboard', null, true);
+  }
+
   const { title, subtitle } = getPageMeta();
 
   return (
     <div className="app-container">
-      {/* Fixed, Collapsible, and Responsive Sidebar */}
+      {/* Hover-to-expand Responsive Sidebar */}
       <Sidebar
         currentTab={currentTab}
         onSelectTab={(tab) => navigate(tab, null)}
         isOpen={mobileSidebarOpen}
         onClose={() => setMobileSidebarOpen(false)}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={toggleSidebarCollapse}
       />
 
-      {/* Main Content Wrapper (Dynamically offset by sidebar width) */}
-      <div className={`main-content ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      {/* Main Content Area */}
+      <div className="main-content">
         <Header
           title={title}
           subtitle={subtitle}
           onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
           onRefresh={() => setRefreshKey((k) => k + 1)}
+          onNavigate={navigate}
         />
 
         <main className="page-body" key={refreshKey}>
@@ -305,10 +407,17 @@ export default function App() {
           )}
           {currentTab === 'campaigns' && <CampaignsPage onNavigate={navigate} />}
           {currentTab === 'create-campaign' && (
-            <CreateCampaignPage onNavigate={navigate} />
+            <CreateCampaignPage
+              onNavigate={navigate}
+              registerNavBlocker={registerNavBlocker}
+              previousRoute={previousRouteRef.current}
+            />
           )}
           {currentTab === 'campaign-detail' && (
             <CampaignDetailPage campaignId={activeParam} onNavigate={navigate} />
+          )}
+          {currentTab === 'email-accounts' && (
+            <EmailAccountsPage onNavigate={navigate} />
           )}
           {currentTab === 'review-queue' && <ReviewQueuePage onNavigate={navigate} />}
           {currentTab === 'analytics' && <AnalyticsPage onNavigate={navigate} />}
@@ -316,5 +425,15 @@ export default function App() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <ModalProvider>
+        <AppShell />
+      </ModalProvider>
+    </AuthProvider>
   );
 }

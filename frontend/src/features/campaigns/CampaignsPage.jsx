@@ -22,6 +22,7 @@ import {
 import { campaignsApi } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Pagination from '../../components/ui/Pagination';
+import ConfirmationModal from '../../components/ui/ConfirmationModal';
 import CustomizeColumnsDrawer, {
   getSavedColumns,
   ALL_COLUMNS,
@@ -83,21 +84,42 @@ export default function CampaignsPage({ onNavigate }) {
       .finally(() => setLoading(false));
   };
 
+  // Modal states for delete confirmation and error popups
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState({
+    isOpen: false,
+    type: 'danger',
+    title: '',
+    message: '',
+  });
+
   useEffect(() => {
     fetchCampaigns();
   }, [page, pageSize, activeTab, filterStatus, searchQuery]);
 
-  const handleDeleteCampaign = async (cid) => {
-    if (!window.confirm('Are you sure you want to delete this campaign?')) return;
-    setActionLoading(cid);
+  const handleRequestDelete = (campaign) => {
     setActiveRowMenu(null);
+    setDeleteTarget({ id: campaign.id, name: campaign.name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      await campaignsApi.delete(cid);
-      fetchCampaigns();
+      await campaignsApi.delete(deleteTarget.id);
+      setDeleteTarget(null);
+      await fetchCampaigns();
     } catch (err) {
-      alert(err.message || 'Failed to delete campaign.');
+      setDeleteTarget(null);
+      setFeedbackModal({
+        isOpen: true,
+        type: 'danger',
+        title: 'Failed to delete campaign',
+        message: err.message || 'An error occurred while deleting the campaign. Please try again.',
+      });
     } finally {
-      setActionLoading(null);
+      setIsDeleting(false);
     }
   };
 
@@ -108,7 +130,12 @@ export default function CampaignsPage({ onNavigate }) {
       await campaignsApi.pause(cid);
       fetchCampaigns();
     } catch (err) {
-      alert(err.message || 'Failed to pause campaign.');
+      setFeedbackModal({
+        isOpen: true,
+        type: 'danger',
+        title: 'Failed to pause campaign',
+        message: err.message || 'An error occurred while attempting to pause the campaign.',
+      });
     } finally {
       setActionLoading(null);
     }
@@ -121,7 +148,12 @@ export default function CampaignsPage({ onNavigate }) {
       await campaignsApi.resume(cid);
       fetchCampaigns();
     } catch (err) {
-      alert(err.message || 'Failed to resume campaign.');
+      setFeedbackModal({
+        isOpen: true,
+        type: 'danger',
+        title: 'Failed to resume campaign',
+        message: err.message || 'An error occurred while attempting to resume the campaign.',
+      });
     } finally {
       setActionLoading(null);
     }
@@ -180,7 +212,7 @@ export default function CampaignsPage({ onNavigate }) {
         {/* Right Header Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {/* Search campaigns field */}
-          <div style={{ position: 'relative', width: '260px' }}>
+          <div style={{ position: 'relative', width: '260px', maxWidth: '100%' }}>
             <Search
               size={15}
               style={{ position: 'absolute', left: '12px', top: '10px', color: '#94a3b8' }}
@@ -400,9 +432,12 @@ export default function CampaignsPage({ onNavigate }) {
           backgroundColor: '#ffffff',
           borderRadius: '12px 12px 0 0',
           padding: '0 16px',
+          overflowX: 'auto',
+          flexWrap: 'wrap',
+          gap: '8px',
         }}
       >
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', maxWidth: '100%' }}>
           {statusTabs.map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
@@ -873,7 +908,7 @@ export default function CampaignsPage({ onNavigate }) {
                                   )}
 
                                   <div
-                                    onClick={() => handleDeleteCampaign(c.id)}
+                                    onClick={() => handleRequestDelete(c)}
                                     style={{
                                       padding: '8px 10px',
                                       fontSize: '12px',
@@ -924,6 +959,38 @@ export default function CampaignsPage({ onNavigate }) {
         onClose={() => setIsColumnsDrawerOpen(false)}
         visibleColumns={visibleColumns}
         onApply={(cols) => setVisibleColumns(cols)}
+      />
+
+      {/* Centered Campaign Deletion Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={Boolean(deleteTarget)}
+        type="danger"
+        title="Delete this campaign?"
+        message={
+          deleteTarget
+            ? `Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone and will permanently remove this campaign.`
+            : ''
+        }
+        cancelLabel="Cancel"
+        confirmLabel="Delete Campaign"
+        confirmVariant="danger"
+        isLoading={isDeleting}
+        onCancel={() => !isDeleting && setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+      />
+
+      {/* Centered Action Failure / Feedback Modal */}
+      <ConfirmationModal
+        isOpen={feedbackModal.isOpen}
+        type={feedbackModal.type}
+        title={feedbackModal.title}
+        message={feedbackModal.message}
+        confirmLabel="Dismiss"
+        cancelLabel={null}
+        confirmVariant="danger"
+        onClose={() => setFeedbackModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={() => setFeedbackModal((prev) => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

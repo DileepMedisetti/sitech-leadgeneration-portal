@@ -1,21 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   AlertTriangle,
-  XCircle,
   Mail,
   Users,
   Calendar,
-  Settings,
   Edit2,
   Send,
   Eye,
   ShieldCheck,
-  Info,
+  Clock,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import DeliverabilityPanel from './DeliverabilityPanel';
 import PlacementTestPanel from './PlacementTestPanel';
 import MLPredictionPanel from './MLPredictionPanel';
+import { CURATED_TEMPLATES, renderPersonalizedText } from '../campaignConstants';
 
 export default function ReviewStep({
   campaignName,
@@ -24,6 +25,9 @@ export default function ReviewStep({
   fromName,
   fromEmail,
   replyTo,
+  selectedTags = [],
+  editorMode = 'template_gallery',
+  selectedTemplateId,
   htmlContent,
   selectedListNames = [],
   grossContacts = 0,
@@ -43,7 +47,6 @@ export default function ReviewStep({
   loadingML,
   onRequestMLPrediction,
   preflight,
-  loadingPreflight,
   onJumpToStep,
   onLaunch,
   submitting,
@@ -51,519 +54,449 @@ export default function ReviewStep({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [ackConfirmed, setAckConfirmed] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [activeIntelTab, setActiveIntelTab] = useState('rules'); // 'rules' | 'placement' | 'ml'
+
+  // Lock body scroll when review modals are open
+  useEffect(() => {
+    if (showConfirmModal || showPreviewModal) {
+      const orig = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = orig;
+      };
+    }
+  }, [showConfirmModal, showPreviewModal]);
 
   const blockers = preflight?.blockers || [];
   const warnings = preflight?.warnings || [];
-  const canLaunch = preflight ? preflight.can_schedule_or_send : false;
+
+  const currentTemplate = CURATED_TEMPLATES.find((t) => t.id === selectedTemplateId);
+
+  const formattedScheduledTime = !sendImmediately && scheduledAtDate
+    ? `${scheduledAtDate} at ${scheduledAtTime || '09:00'} (${timezoneName || 'UTC'})`
+    : 'Immediate delivery upon launch confirmation';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-      {/* Preflight Deliverability Gate Banner */}
+    <div className="campaign-step-container">
+      {/* 1. Preflight Deliverability Gate Banner */}
       <div
-        style={{
-          padding: '20px 24px',
-          borderRadius: '16px',
-          backgroundColor: blockers.length > 0 ? '#fff1f2' : '#f0fdf4',
-          border: '1px solid',
-          borderColor: blockers.length > 0 ? '#fecdd3' : '#bbf7d0',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '16px',
-        }}
+        className={`campaign-preflight-banner ${
+          blockers.length > 0 ? 'banner-blocked' : 'banner-ready'
+        }`}
       >
-        <div
-          style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '10px',
-            backgroundColor: blockers.length > 0 ? '#ffe4e6' : '#dcfce7',
-            color: blockers.length > 0 ? '#e11d48' : '#16a34a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
+        <div className="campaign-preflight-icon-box">
           {blockers.length > 0 ? <AlertTriangle size={22} /> : <CheckCircle2 size={22} />}
         </div>
-
-        <div style={{ flex: 1 }}>
-          <h4
-            style={{
-              margin: '0 0 4px 0',
-              fontSize: '16px',
-              fontWeight: 800,
-              color: blockers.length > 0 ? '#9f1239' : '#166534',
-            }}
-          >
+        <div className="campaign-preflight-body">
+          <h3 className="campaign-preflight-heading">
             {blockers.length > 0
-              ? `${blockers.length} Preflight Blocker(s) Preventing Launch`
+              ? `${blockers.length} Mandatory Deliverability Blocker(s)`
               : 'Campaign Ready for Dispatch'}
-          </h4>
-          <p
-            style={{
-              margin: 0,
-              fontSize: '13px',
-              color: blockers.length > 0 ? '#be123c' : '#15803d',
-              lineHeight: 1.4,
-            }}
-          >
+          </h3>
+          <p className="campaign-preflight-message">
             {blockers.length > 0
-              ? 'Address mandatory deliverability blockers below before scheduling or launching this outreach.'
-              : 'All deliverability checks, sender alignment, audience deduplication, and unsubscribe compliance verified.'}
+              ? 'Address the required deliverability blockers below before launching this campaign.'
+              : 'All sender alignments, audience deduplication checks, and compliance guidelines verified.'}
           </p>
 
           {blockers.length > 0 && (
-            <ul style={{ margin: '10px 0 0 0', paddingLeft: '20px', fontSize: '13px', color: '#9f1239' }}>
+            <ul className="campaign-preflight-list">
               {blockers.map((b, i) => (
-                <li key={i} style={{ marginBottom: '4px' }}>
-                  <strong>Blocker:</strong> {b}
-                </li>
+                <li key={i}>{b}</li>
               ))}
             </ul>
           )}
 
-          {warnings.length > 0 && (
-            <div style={{ marginTop: '8px', fontSize: '12px', color: '#b45309' }}>
-              <strong>Non-blocking warnings:</strong> {warnings.join(' · ')}
+          {warnings.length > 0 && blockers.length === 0 && (
+            <div className="campaign-preflight-warnings">
+              <strong>Advisory:</strong> {warnings.join(' · ')}
             </div>
           )}
         </div>
       </div>
 
-      {/* 4 Summary Cards Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '20px',
-        }}
-      >
-        {/* Card 1: Sender & Subject */}
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '14px',
-            border: '1px solid #e2e8f0',
-            padding: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2563eb', fontWeight: 700, fontSize: '13px' }}>
-                <Mail size={16} /> Sender & Subject
-              </div>
-              <button
-                type="button"
-                onClick={() => onJumpToStep(1)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#2563eb',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <Edit2 size={12} /> Edit
-              </button>
+      {/* 2. Structured Review Cards Grid */}
+      <div className="campaign-review-grid">
+        {/* Card 1: Campaign & Sender Details */}
+        <div className="campaign-card campaign-card-padded campaign-review-card">
+          <div className="campaign-review-card-header">
+            <div className="campaign-review-card-title-group">
+              <Mail size={16} className="campaign-review-card-icon" />
+              <h3 className="campaign-review-card-title">Campaign & Sender Details</h3>
             </div>
+            <button
+              type="button"
+              onClick={() => onJumpToStep && onJumpToStep(1)}
+              className="campaign-review-edit-btn"
+              title="Edit Campaign Details"
+            >
+              <Edit2 size={12} />
+              <span>Edit Details</span>
+            </button>
+          </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>SUBJECT</span>
-                <span style={{ fontWeight: 700, color: '#0f172a' }}>{subject || '—'}</span>
+          <div className="campaign-review-table">
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Campaign Name:</span>
+              <span className="campaign-review-value campaign-review-value-bold">
+                {campaignName || 'Untitled Campaign'}
+              </span>
+            </div>
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Email Subject:</span>
+              <span className="campaign-review-value">{subject}</span>
+            </div>
+            {previewText && (
+              <div className="campaign-review-row">
+                <span className="campaign-review-label">Preview Text:</span>
+                <span className="campaign-review-value campaign-review-italic">
+                  {previewText}
+                </span>
               </div>
-              {previewText && (
-                <div>
-                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>PREVIEW TEXT</span>
-                  <span style={{ color: '#475569' }}>{previewText}</span>
-                </div>
-              )}
-              <div>
-                <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>FROM</span>
-                <span style={{ color: '#0f172a' }}>{fromName} &lt;{fromEmail}&gt;</span>
+            )}
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Sender Identity:</span>
+              <span className="campaign-review-value">
+                {fromName} &lt;{fromEmail}&gt;
+              </span>
+            </div>
+            {replyTo && replyTo !== fromEmail && (
+              <div className="campaign-review-row">
+                <span className="campaign-review-label">Reply-To:</span>
+                <span className="campaign-review-value">{replyTo}</span>
               </div>
-              {replyTo && replyTo !== fromEmail && (
-                <div>
-                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>REPLY-TO</span>
-                  <span style={{ color: '#0f172a' }}>&lt;{replyTo}&gt;</span>
+            )}
+            {selectedTags && selectedTags.length > 0 && (
+              <div className="campaign-review-row">
+                <span className="campaign-review-label">Campaign Tags:</span>
+                <div className="campaign-review-tags">
+                  {selectedTags.map((tag) => (
+                    <span key={tag} className="campaign-review-tag-chip">
+                      {tag}
+                    </span>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card 2: Email Design & Content */}
+        <div className="campaign-card campaign-card-padded campaign-review-card">
+          <div className="campaign-review-card-header">
+            <div className="campaign-review-card-title-group">
+              <Eye size={16} className="campaign-review-card-icon" />
+              <h3 className="campaign-review-card-title">Email Design & Content</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => onJumpToStep && onJumpToStep(2)}
+              className="campaign-review-edit-btn"
+              title="Edit Email Design"
+            >
+              <Edit2 size={12} />
+              <span>Edit Content</span>
+            </button>
+          </div>
+
+          <div className="campaign-review-table">
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Creation Method:</span>
+              <span className="campaign-review-value">
+                {editorMode === 'template_gallery' ? 'Template Gallery' : 'Custom HTML Editor'}
+              </span>
+            </div>
+            {editorMode === 'template_gallery' && currentTemplate && (
+              <div className="campaign-review-row">
+                <span className="campaign-review-label">Template:</span>
+                <span className="campaign-review-value campaign-review-value-bold">
+                  {currentTemplate.name}
+                </span>
+              </div>
+            )}
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Content Size:</span>
+              <span className="campaign-review-value">
+                {htmlContent ? `${htmlContent.length} characters` : '0 characters'}
+              </span>
             </div>
           </div>
 
-          <div style={{ marginTop: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+          <div className="campaign-review-preview-action">
             <button
               type="button"
               onClick={() => setShowPreviewModal(true)}
-              style={{
-                width: '100%',
-                padding: '6px 12px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: '#334155',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-              }}
+              className="campaign-action-btn-secondary campaign-btn-full"
             >
-              <Eye size={13} /> View Email Content
+              <Eye size={14} />
+              <span>Preview Rendered Email</span>
             </button>
           </div>
         </div>
 
-        {/* Card 2: Target Audience */}
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '14px',
-            border: '1px solid #e2e8f0',
-            padding: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2563eb', fontWeight: 700, fontSize: '13px' }}>
-                <Users size={16} /> Target Audience
-              </div>
-              <button
-                type="button"
-                onClick={() => onJumpToStep(2)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#2563eb',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <Edit2 size={12} /> Edit
-              </button>
+        {/* Card 3: Target Audience */}
+        <div className="campaign-card campaign-card-padded campaign-review-card">
+          <div className="campaign-review-card-header">
+            <div className="campaign-review-card-title-group">
+              <Users size={16} className="campaign-review-card-icon" />
+              <h3 className="campaign-review-card-title">Target Audience</h3>
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>SELECTED LISTS</span>
-                <span style={{ fontWeight: 600, color: '#0f172a' }}>
-                  {selectedListNames.length > 0 ? selectedListNames.join(', ') : 'No list selected'}
-                </span>
-              </div>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
-                <div>
-                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>GROSS CONTACTS</span>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>{grossContacts}</span>
-                </div>
-                <div>
-                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>ELIGIBLE UNIQUE</span>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#16a34a' }}>{eligibleContacts}</span>
-                </div>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => onJumpToStep && onJumpToStep(3)}
+              className="campaign-review-edit-btn"
+              title="Edit Audience Selection"
+            >
+              <Edit2 size={12} />
+              <span>Edit Audience</span>
+            </button>
           </div>
 
-          <div style={{ marginTop: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '10px', fontSize: '11px', color: '#64748b' }}>
-            Deduplicated by normalized email. Re-verified at send time.
+          <div className="campaign-review-table">
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Selected Lists:</span>
+              <span className="campaign-review-value campaign-review-value-bold">
+                {selectedListNames.length > 0
+                  ? selectedListNames.join(', ')
+                  : 'No lists selected'}
+              </span>
+            </div>
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Gross Contacts:</span>
+              <span className="campaign-review-value">
+                {grossContacts.toLocaleString()} contacts
+              </span>
+            </div>
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Eligible Contacts:</span>
+              <span className="campaign-review-value campaign-review-value-success">
+                {eligibleContacts.toLocaleString()} verified recipients
+              </span>
+            </div>
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Deduplication:</span>
+              <span className="campaign-review-value">
+                Automatic by normalized email
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Card 3: Dispatch & Schedule */}
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '14px',
-            border: '1px solid #e2e8f0',
-            padding: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2563eb', fontWeight: 700, fontSize: '13px' }}>
-                <Calendar size={16} /> Schedule & Strategy
-              </div>
-              <button
-                type="button"
-                onClick={() => onJumpToStep(3)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#2563eb',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <Edit2 size={12} /> Edit
-              </button>
+        {/* Card 4: Schedule & Tracking */}
+        <div className="campaign-card campaign-card-padded campaign-review-card">
+          <div className="campaign-review-card-header">
+            <div className="campaign-review-card-title-group">
+              <Calendar size={16} className="campaign-review-card-icon" />
+              <h3 className="campaign-review-card-title">Schedule & Tracking</h3>
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-              <div>
-                <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>STRATEGY</span>
-                <span style={{ fontWeight: 700, color: '#0f172a' }}>
-                  {sendImmediately ? 'Send Immediately' : 'Scheduled Future Delivery'}
-                </span>
-              </div>
-              {!sendImmediately && (
-                <div>
-                  <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>SCHEDULED FOR</span>
-                  <span style={{ color: '#0f172a', fontWeight: 600 }}>
-                    {scheduledAtDate} at {scheduledAtTime} ({timezoneName})
-                  </span>
-                </div>
-              )}
-              <div>
-                <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>TRACKING</span>
-                <span style={{ color: '#475569' }}>
-                  Opens: {trackingOptions?.track_opens ? 'Enabled' : 'Disabled'} · Clicks: {trackingOptions?.track_clicks ? 'Enabled' : 'Disabled'}
-                </span>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => onJumpToStep && onJumpToStep(4)}
+              className="campaign-review-edit-btn"
+              title="Edit Schedule"
+            >
+              <Edit2 size={12} />
+              <span>Edit Schedule</span>
+            </button>
           </div>
 
-          <div style={{ marginTop: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '10px', fontSize: '11px', color: '#64748b' }}>
-            Timestamps normalized to UTC on dispatch.
+          <div className="campaign-review-table">
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Dispatch Mode:</span>
+              <span className="campaign-review-value campaign-review-value-bold">
+                {sendImmediately ? 'Send Immediately' : 'Scheduled Future Send'}
+              </span>
+            </div>
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Delivery Timing:</span>
+              <span className="campaign-review-value">
+                {formattedScheduledTime}
+              </span>
+            </div>
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Open Tracking:</span>
+              <span className="campaign-review-value">
+                {trackingOptions?.track_opens ? 'Enabled (1x1 pixel)' : 'Disabled'}
+              </span>
+            </div>
+            <div className="campaign-review-row">
+              <span className="campaign-review-label">Click Tracking:</span>
+              <span className="campaign-review-value">
+                {trackingOptions?.track_clicks ? 'Enabled (TLS redirect)' : 'Disabled'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Deliverability Intelligence Engines Section */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div>
-          <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
-            Deliverability Intelligence & Verification
-          </h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-            Pre-flight diagnostics across deterministic rule scoring, seedbox placement, and calibrated ML prediction.
+      {/* 3. Deliverability Intelligence Suite Tabs */}
+      <div className="campaign-card campaign-card-padded campaign-intel-suite-card">
+        <div className="campaign-section-header">
+          <h3 className="campaign-section-title">Deliverability Intelligence & Verification</h3>
+          <p className="campaign-section-subtitle">
+            Inspect automated spam filters, controlled seedbox inbox placement, and predictive machine learning models.
           </p>
         </div>
 
-        {/* 1. Rule-Based Spam Analyzer */}
-        <DeliverabilityPanel
-          report={deliverabilityReport}
-          loading={loadingAnalysis}
-          onRunAnalysis={onRunDeliverabilityAnalysis}
-        />
+        {/* Intelligence Tab Navigation */}
+        <div className="campaign-intel-tabs-row">
+          <button
+            type="button"
+            onClick={() => setActiveIntelTab('rules')}
+            className={`campaign-intel-tab-btn ${
+              activeIntelTab === 'rules' ? 'intel-tab-active' : ''
+            }`}
+          >
+            <ShieldCheck size={14} />
+            <span>Spam-Risk Analysis</span>
+            {deliverabilityReport?.spam_risk_score !== undefined && (
+              <span className="campaign-tab-score-pill">
+                Score {deliverabilityReport.spam_risk_score}
+              </span>
+            )}
+          </button>
 
-        {/* 2. Controlled Placement Testing Engine */}
-        <PlacementTestPanel
-          placementTest={placementTest}
-          loading={loadingPlacement}
-          onRunTest={onRunPlacementTest}
-        />
+          <button
+            type="button"
+            onClick={() => setActiveIntelTab('placement')}
+            className={`campaign-intel-tab-btn ${
+              activeIntelTab === 'placement' ? 'intel-tab-active' : ''
+            }`}
+          >
+            <Clock size={14} />
+            <span>Seedbox Placement Test</span>
+          </button>
 
-        {/* 3. Calibrated ML Placement Prediction */}
-        <MLPredictionPanel
-          prediction={mlPrediction}
-          loading={loadingML}
-          onRequestPrediction={onRequestMLPrediction}
-        />
-      </div>
-
-      {/* Bottom Launch Action Bar */}
-      <div
-        style={{
-          padding: '24px',
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px' }}>
-          <ShieldCheck size={18} style={{ color: canLaunch ? '#16a34a' : '#d97706' }} />
-          <span>
-            {canLaunch
-              ? 'Deliverability validated. Ready for confirmation.'
-              : 'Execute deliverability analysis to verify launch readiness.'}
-          </span>
+          <button
+            type="button"
+            onClick={() => setActiveIntelTab('ml')}
+            className={`campaign-intel-tab-btn ${
+              activeIntelTab === 'ml' ? 'intel-tab-active' : ''
+            }`}
+          >
+            <Sparkles size={14} />
+            <span>ML Inbox Forecast</span>
+          </button>
         </div>
 
-        <button
-          type="button"
-          disabled={!canLaunch || submitting}
-          onClick={() => setShowConfirmModal(true)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '12px 28px',
-            fontSize: '14px',
-            fontWeight: 700,
-            color: '#ffffff',
-            backgroundColor: canLaunch ? '#2563eb' : '#94a3b8',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: canLaunch ? 'pointer' : 'not-allowed',
-            boxShadow: canLaunch ? '0 2px 6px rgba(37, 99, 235, 0.25)' : 'none',
-          }}
-        >
-          <Send size={16} />
-          {submitting
-            ? 'Processing...'
-            : sendImmediately
-            ? 'Launch Campaign Now'
-            : 'Schedule Campaign'}
-        </button>
+        {/* Tab Body */}
+        <div className="campaign-intel-tab-body">
+          {activeIntelTab === 'rules' && (
+            <DeliverabilityPanel
+              report={deliverabilityReport}
+              loading={loadingAnalysis}
+              onRunAnalysis={onRunDeliverabilityAnalysis}
+            />
+          )}
+
+          {activeIntelTab === 'placement' && (
+            <PlacementTestPanel
+              placementTest={placementTest}
+              loading={loadingPlacement}
+              onRunPlacementTest={onRunPlacementTest}
+            />
+          )}
+
+          {activeIntelTab === 'ml' && (
+            <MLPredictionPanel
+              prediction={mlPrediction}
+              loading={loadingML}
+              onRequestPrediction={onRequestMLPrediction}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Explicit Confirmation Modal */}
-      {showConfirmModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(3px)',
-            padding: '20px',
-          }}
-          onClick={() => setShowConfirmModal(false)}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '520px',
-              backgroundColor: '#ffffff',
-              borderRadius: '16px',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.2)',
-              padding: '28px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '20px',
-            }}
-            onClick={(e) => e.stopPropagation()}
+      {/* 4. Final Launch Execution Card */}
+      <div className="campaign-card campaign-card-padded campaign-launch-cta-card">
+        <div className="campaign-launch-cta-content">
+          <div className="campaign-launch-cta-text">
+            <h3 className="campaign-launch-cta-title">
+              {sendImmediately ? 'Ready to Dispatch Campaign' : 'Ready to Schedule Campaign'}
+            </h3>
+            <p className="campaign-launch-cta-desc">
+              {sendImmediately
+                ? `Will send immediately to approximately ${eligibleContacts.toLocaleString()} verified eligible contacts.`
+                : `Will automatically queue and send on ${formattedScheduledTime}.`}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={submitting || blockers.length > 0}
+            onClick={() => setShowConfirmModal(true)}
+            className="campaign-launch-primary-btn"
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '10px',
-                  backgroundColor: '#eff6ff',
-                  color: '#2563eb',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Send size={20} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
-                  {sendImmediately ? 'Confirm Campaign Launch' : 'Confirm Scheduled Outreach'}
-                </h3>
-                <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                  Explicit authorization required before dispatch.
-                </p>
-              </div>
-            </div>
+            <Send size={16} />
+            <span>
+              {submitting
+                ? 'Processing...'
+                : sendImmediately
+                ? 'Launch Campaign Now'
+                : 'Confirm & Schedule Campaign'}
+            </span>
+          </button>
+        </div>
+      </div>
 
-            <div
-              style={{
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '10px',
-                padding: '16px',
-                fontSize: '13px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-              }}
-            >
-              <div>
-                <strong>Campaign:</strong> {campaignName}
-              </div>
-              <div>
-                <strong>Recipients:</strong> {eligibleContacts} verified eligible contacts
-              </div>
-              <div>
-                <strong>From:</strong> {fromName} &lt;{fromEmail}&gt;
-              </div>
-              <div>
-                <strong>Timing:</strong>{' '}
-                {sendImmediately
-                  ? 'Immediate Dispatch'
-                  : `${scheduledAtDate} at ${scheduledAtTime} (${timezoneName})`}
-              </div>
-            </div>
-
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
-                fontSize: '13px',
-                color: '#334155',
-                cursor: 'pointer',
-                lineHeight: 1.4,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={ackConfirmed}
-                onChange={(e) => setAckConfirmed(e.target.checked)}
-                style={{
-                  marginTop: '2px',
-                  accentColor: '#2563eb',
-                  width: '16px',
-                  height: '16px',
-                }}
-              />
-              <span>
-                I confirm that this campaign content, sender identity, and targeted audience comply with institutional standards and anti-spam regulations.
-              </span>
-            </label>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="campaign-modal-backdrop" onClick={() => setShowConfirmModal(false)}>
+          <div className="campaign-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="campaign-modal-header">
+              <h3 className="campaign-modal-title">
+                {sendImmediately ? 'Confirm Campaign Launch' : 'Confirm Scheduled Outreach'}
+              </h3>
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                style={{
-                  padding: '9px 18px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: '#475569',
-                  backgroundColor: '#f1f5f9',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                }}
+                className="campaign-modal-close-btn"
+                aria-label="Close dialog"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="campaign-modal-body">
+              <p style={{ margin: '0 0 16px 0', fontSize: '13.5px', color: '#334155', lineHeight: 1.5 }}>
+                You are about to {sendImmediately ? 'dispatch' : 'schedule'} outreach for{' '}
+                <strong>{campaignName}</strong> to{' '}
+                <strong>{eligibleContacts.toLocaleString()} verified faculty contacts</strong>.
+              </p>
+
+              <div className="campaign-modal-summary-box">
+                <div className="campaign-modal-summary-row">
+                  <span>Subject:</span>
+                  <strong style={{ color: '#0f172a' }}>{subject}</strong>
+                </div>
+                <div className="campaign-modal-summary-row">
+                  <span>Sender:</span>
+                  <span>{fromName} &lt;{fromEmail}&gt;</span>
+                </div>
+                <div className="campaign-modal-summary-row">
+                  <span>Timing:</span>
+                  <span>{formattedScheduledTime}</span>
+                </div>
+              </div>
+
+              <label className="campaign-modal-checkbox-row">
+                <input
+                  type="checkbox"
+                  className="campaign-checkbox"
+                  checked={ackConfirmed}
+                  onChange={(e) => setAckConfirmed(e.target.checked)}
+                />
+                <span style={{ fontSize: '12.5px', color: '#1e293b' }}>
+                  I confirm that recipient contact lists are compliant with institutional outreach policies and all deliverability guidelines are met.
+                </span>
+              </label>
+            </div>
+
+            <div className="campaign-modal-footer">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="campaign-action-btn-secondary"
               >
                 Cancel
               </button>
@@ -574,88 +507,72 @@ export default function ReviewStep({
                   setShowConfirmModal(false);
                   onLaunch();
                 }}
-                style={{
-                  padding: '9px 24px',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  color: '#ffffff',
-                  backgroundColor: ackConfirmed ? '#2563eb' : '#94a3b8',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: ackConfirmed ? 'pointer' : 'not-allowed',
-                  boxShadow: ackConfirmed ? '0 2px 4px rgba(37, 99, 235, 0.25)' : 'none',
-                }}
+                className="campaign-action-btn-primary"
               >
-                {submitting ? 'Dispatching...' : 'Yes, Launch Campaign'}
+                {submitting ? 'Dispatching...' : 'Yes, Proceed with Campaign'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Email Preview Modal */}
+      {/* Rendered Email Preview Modal */}
       {showPreviewModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(3px)',
-            padding: '20px',
-          }}
-          onClick={() => setShowPreviewModal(false)}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '680px',
-              maxHeight: '85vh',
-              backgroundColor: '#ffffff',
-              borderRadius: '16px',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.2)',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid #e2e8f0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
-                Content Preview: {subject}
-              </h4>
+        <div className="campaign-modal-backdrop" onClick={() => setShowPreviewModal(false)}>
+          <div className="campaign-modal-box campaign-modal-box-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="campaign-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Eye size={16} color="#2563eb" />
+                <h3 className="campaign-modal-title">Email Content Preview</h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowPreviewModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                className="campaign-modal-close-btn"
+                aria-label="Close preview"
               >
-                ×
+                <X size={18} />
               </button>
             </div>
 
-            <div style={{ flex: 1, padding: '28px', overflowY: 'auto' }}>
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: htmlContent
-                    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-                    .replace(/{{name}}/g, 'Dr. Margaret Hamilton')
-                    .replace(/{{first_name}}/g, 'Margaret')
-                    .replace(/{{university}}/g, 'MIT')
-                    .replace(/{{department}}/g, 'Computer Science')
-                    .replace(/{{unsubscribe_url}}/g, '#unsubscribe'),
-                }}
-              />
+            <div className="campaign-modal-body" style={{ backgroundColor: '#f8fafc', padding: '24px' }}>
+              <div className="campaign-preview-inbox-header" style={{ marginBottom: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div className="campaign-inbox-header-row">
+                  <span className="campaign-inbox-header-label">Subject:</span>
+                  <span className="campaign-inbox-header-subject">{renderPersonalizedText(subject)}</span>
+                </div>
+                <div className="campaign-inbox-header-row">
+                  <span className="campaign-inbox-header-label">From:</span>
+                  <span className="campaign-inbox-header-value">{fromName} &lt;{fromEmail}&gt;</span>
+                </div>
+                {previewText && (
+                  <div className="campaign-inbox-header-row">
+                    <span className="campaign-inbox-header-label">Preview:</span>
+                    <span className="campaign-inbox-header-preheader">{renderPersonalizedText(previewText)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="campaign-device-frame-desktop">
+                <div
+                  className="campaign-email-render-target"
+                  dangerouslySetInnerHTML={{
+                    __html: renderPersonalizedText(
+                      (htmlContent || '').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                    ),
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="campaign-modal-footer">
+              <button
+                type="button"
+                onClick={() => setShowPreviewModal(false)}
+                className="campaign-action-btn-secondary"
+              >
+                Close Preview
+              </button>
             </div>
           </div>
         </div>
