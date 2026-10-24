@@ -1,61 +1,64 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
-  Send,
   AlertTriangle,
-  Info,
 } from 'lucide-react';
 import { campaignsApi, audienceApi, deliverabilityApi } from '../../services/api-client';
 
+import { CAMPAIGN_STEPS } from './campaignConstants';
 import CampaignWizardHeader from './components/CampaignWizardHeader';
-import ContentStep from './components/ContentStep';
+import CampaignDetailsStep from './components/CampaignDetailsStep';
+import EmailDesignStep from './components/EmailDesignStep';
 import ChooseContactsStep from './components/ChooseContactsStep';
 import ScheduleStep from './components/ScheduleStep';
 import ReviewStep from './components/ReviewStep';
-import TemplateSelectionModal from './components/TemplateSelectionModal';
-import HtmlEditorModal from './components/HtmlEditorModal';
+import ConfirmationModal from '../../components/ui/ConfirmationModal';
 import './campaigns.css';
 
-export default function CreateCampaignPage({ onNavigate }) {
+export default function CreateCampaignPage({ onNavigate, registerNavBlocker, previousRoute }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [campaignId, setCampaignId] = useState(null);
-  const [campaignName, setCampaignName] = useState('Academic Research Symposium Outreach');
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
 
-  // Modals
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [showHtmlEditorModal, setShowHtmlEditorModal] = useState(false);
+  // Centered Unsaved Changes Modal State
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [pendingDestination, setPendingDestination] = useState(null);
 
-  // Step 1: Content State
+  // Step 1: Campaign Details State
+  const [campaignName, setCampaignName] = useState('Academic Research Symposium Outreach');
   const [subject, setSubject] = useState('Cross-Institutional Research Initiative — Faculty Collaboration');
   const [previewText, setPreviewText] = useState('Reviewing joint computational research opportunities with faculty colleagues.');
   const [fromName, setFromName] = useState('Sitech Academic Outreach');
   const [fromEmail, setFromEmail] = useState('outreach@sitechseries.org');
   const [replyTo, setReplyTo] = useState('outreach@sitechseries.org');
   const [selectedTags, setSelectedTags] = useState(['Faculty Outreach']);
-  const [htmlContent, setHtmlContent] = useState('');
-  const [plainText, setPlainText] = useState('');
   const [trackingOptions, setTrackingOptions] = useState({
     track_opens: true,
     track_clicks: true,
   });
 
-  // Step 2: Contacts State
+  // Step 2: Email Design State
+  const [editorMode, setEditorMode] = useState('template_gallery'); // 'template_gallery' | 'html_editor'
+  const [selectedTemplateId, setSelectedTemplateId] = useState('research_collab');
+  const [htmlContent, setHtmlContent] = useState('');
+  const [plainText, setPlainText] = useState('');
+
+  // Step 3: Audience State
   const [availableLists, setAvailableLists] = useState([]);
   const [selectedListIds, setSelectedListIds] = useState([]);
   const [audienceSummary, setAudienceSummary] = useState(null);
   const [loadingLists, setLoadingLists] = useState(false);
 
-  // Step 3: Schedule State
+  // Step 4: Schedule State
   const [sendImmediately, setSendImmediately] = useState(true);
   const [scheduledAtDate, setScheduledAtDate] = useState('');
   const [scheduledAtTime, setScheduledAtTime] = useState('09:00');
   const [timezoneName, setTimezoneName] = useState('UTC');
 
-  // Step 4: Deliverability & Review State
+  // Step 5: Deliverability & Review State
   const [deliverabilityReport, setDeliverabilityReport] = useState(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [placementTest, setPlacementTest] = useState(null);
@@ -65,9 +68,18 @@ export default function CreateCampaignPage({ onNavigate }) {
   const [preflight, setPreflight] = useState(null);
   const [loadingPreflight, setLoadingPreflight] = useState(false);
 
-  // Fetch available contact lists when entering Step 2
+  const clearFieldError = (fieldName) => {
+    setFieldErrors((prev) => {
+      if (!prev[fieldName]) return prev;
+      const copy = { ...prev };
+      delete copy[fieldName];
+      return copy;
+    });
+  };
+
+  // Fetch available contact lists when entering Step 3
   useEffect(() => {
-    if (currentStep === 2 && availableLists.length === 0) {
+    if (currentStep === 3 && availableLists.length === 0) {
       setLoadingLists(true);
       audienceApi
         .getLists({ page: 1, page_size: 100 })
@@ -75,7 +87,6 @@ export default function CreateCampaignPage({ onNavigate }) {
           const items = res.items || [];
           setAvailableLists(items);
           if (items.length > 0 && selectedListIds.length === 0) {
-            // Auto-select first list if none selected on initial load
             setSelectedListIds([Number(items[0].id)]);
           }
         })
@@ -84,11 +95,11 @@ export default function CreateCampaignPage({ onNavigate }) {
         })
         .finally(() => setLoadingLists(false));
     }
-  }, [currentStep, availableLists.length]);
+  }, [currentStep, availableLists.length, selectedListIds.length]);
 
-  // Live calculation of authoritative deduplicated audience summary when selections change
+  // Live calculation of deduplicated audience summary when selections change on Step 3
   useEffect(() => {
-    if (currentStep !== 2) return;
+    if (currentStep !== 3) return;
 
     if (selectedListIds.length === 0) {
       setAudienceSummary(null);
@@ -116,14 +127,7 @@ export default function CreateCampaignPage({ onNavigate }) {
     };
   }, [currentStep, campaignId, selectedListIds]);
 
-  // Load preflight checks when reaching Step 4
-  useEffect(() => {
-    if (currentStep === 4 && campaignId) {
-      loadPreflightAndIntelligence();
-    }
-  }, [currentStep, campaignId]);
-
-  const loadPreflightAndIntelligence = async () => {
+  const loadPreflightAndIntelligence = useCallback(async () => {
     if (!campaignId) return;
     setLoadingPreflight(true);
     try {
@@ -137,15 +141,16 @@ export default function CreateCampaignPage({ onNavigate }) {
     } finally {
       setLoadingPreflight(false);
     }
-  };
+  }, [campaignId]);
 
-  const handleApplyTemplate = (tmpl) => {
-    setSubject(tmpl.subject);
-    setPreviewText(tmpl.preview_text);
-    setHtmlContent(tmpl.html_content);
-    setPlainText(tmpl.plain_text);
-  };
+  // Load preflight checks when reaching Step 5
+  useEffect(() => {
+    if (currentStep === 5 && campaignId) {
+      loadPreflightAndIntelligence();
+    }
+  }, [currentStep, campaignId, loadPreflightAndIntelligence]);
 
+  // Selection handlers matching choose-contacts.test.js specifications
   const handleToggleList = (id) => {
     const targetId = Number(id);
     setSelectedListIds((prev) => {
@@ -156,6 +161,7 @@ export default function CreateCampaignPage({ onNavigate }) {
         return [...numericPrev, targetId];
       }
     });
+    clearFieldError('audience');
   };
 
   const handleSelectAllLists = (listsToSelect) => {
@@ -171,6 +177,7 @@ export default function CreateCampaignPage({ onNavigate }) {
     } else {
       setSelectedListIds(availableLists.map((l) => Number(l.id)));
     }
+    clearFieldError('audience');
   };
 
   const handleClearAllLists = () => {
@@ -178,26 +185,42 @@ export default function CreateCampaignPage({ onNavigate }) {
     setAudienceSummary(null);
   };
 
-  // Step 1 -> Step 2: Save campaign draft & content snapshot
-  const handleProceedFromStep1 = async () => {
+  // Step 1 -> Step 2 validation
+  const handleProceedFromStep1 = () => {
     setErrorMessage(null);
+    const errors = {};
+
     if (!campaignName.trim()) {
-      setErrorMessage('Please enter a campaign name in the header.');
-      return;
+      errors.name = 'Campaign name is required.';
     }
     if (!subject.trim()) {
-      setErrorMessage('Please enter an email subject line.');
-      return;
+      errors.subject = 'Email subject line is required.';
+    }
+    if (!fromName.trim()) {
+      errors.fromName = 'Sender display name is required.';
     }
     if (!fromEmail.trim()) {
-      setErrorMessage('Please enter a sender email address.');
-      return;
+      errors.fromEmail = 'Sender email address is required.';
     }
-    if (!htmlContent.trim()) {
-      setErrorMessage('Please add email content or choose a template.');
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
+    setFieldErrors({});
+    setCurrentStep(2);
+  };
+
+  // Step 2 -> Step 3: Save campaign draft & content snapshot
+  const handleProceedFromStep2 = async () => {
+    setErrorMessage(null);
+    if (!htmlContent || !htmlContent.trim()) {
+      setFieldErrors({ content: 'Please select an email template or write HTML content.' });
+      return;
+    }
+
+    setFieldErrors({});
     setSubmitting(true);
     try {
       const payload = {
@@ -211,7 +234,8 @@ export default function CreateCampaignPage({ onNavigate }) {
           reply_to: replyTo.trim().toLowerCase() || null,
           html_content: htmlContent,
           plain_text: plainText.trim() || null,
-          editor_mode: 'html_editor',
+          editor_mode: editorMode === 'template_gallery' ? 'template_gallery' : 'html_editor',
+          template_id: editorMode === 'template_gallery' ? selectedTemplateId : null,
         },
       };
 
@@ -221,22 +245,23 @@ export default function CreateCampaignPage({ onNavigate }) {
       } else {
         await campaignsApi.update(campaignId, payload);
       }
-      setCurrentStep(2);
+      setCurrentStep(3);
     } catch (err) {
-      setErrorMessage(err.message || 'Failed to save campaign draft.');
+      setErrorMessage(err.message || 'Failed to save campaign content draft.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Step 2 -> Step 3: Save audience selection & snapshot
-  const handleProceedFromStep2 = async () => {
+  // Step 3 -> Step 4: Save audience selection & snapshot
+  const handleProceedFromStep3 = async () => {
     setErrorMessage(null);
     if (selectedListIds.length === 0) {
-      setErrorMessage('Please select at least one contact list.');
+      setFieldErrors({ audience: 'Please select at least one contact list to receive this outreach.' });
       return;
     }
 
+    setFieldErrors({});
     setSubmitting(true);
     try {
       const summary = await campaignsApi.selectAudience(campaignId, selectedListIds.map(Number));
@@ -248,7 +273,7 @@ export default function CreateCampaignPage({ onNavigate }) {
         setSubmitting(false);
         return;
       }
-      setCurrentStep(3);
+      setCurrentStep(4);
     } catch (err) {
       setErrorMessage(err.message || 'Failed to assign audience lists.');
     } finally {
@@ -256,24 +281,25 @@ export default function CreateCampaignPage({ onNavigate }) {
     }
   };
 
-  // Step 3 -> Step 4: Validate schedule & review
-  const handleProceedFromStep3 = () => {
+  // Step 4 -> Step 5: Validate schedule
+  const handleProceedFromStep4 = () => {
     setErrorMessage(null);
     if (!sendImmediately) {
       if (!scheduledAtDate) {
-        setErrorMessage('Please select a scheduled send date.');
+        setFieldErrors({ schedule: 'Please select a scheduled send date.' });
         return;
       }
       const combined = new Date(`${scheduledAtDate}T${scheduledAtTime || '00:00'}:00Z`);
       if (combined <= new Date()) {
-        setErrorMessage('Scheduled date and time must be in the future.');
+        setFieldErrors({ schedule: 'Scheduled date and time must be set in the future.' });
         return;
       }
     }
-    setCurrentStep(4);
+    setFieldErrors({});
+    setCurrentStep(5);
   };
 
-  // Step 4 Actions: Deliverability Analysis On-Demand
+  // Step 5 Actions: Deliverability Analysis On-Demand
   const handleRunDeliverabilityAnalysis = async () => {
     if (!campaignId) return;
     setLoadingAnalysis(true);
@@ -289,7 +315,7 @@ export default function CreateCampaignPage({ onNavigate }) {
     }
   };
 
-  // Step 4 Actions: Controlled Placement Test On-Demand
+  // Step 5 Actions: Controlled Placement Test On-Demand
   const handleRunPlacementTest = async () => {
     if (!campaignId) return;
     setLoadingPlacement(true);
@@ -307,7 +333,7 @@ export default function CreateCampaignPage({ onNavigate }) {
     }
   };
 
-  // Step 4 Actions: Request ML Placement Prediction On-Demand
+  // Step 5 Actions: Request ML Placement Prediction On-Demand
   const handleRequestMLPrediction = async () => {
     if (!campaignId) return;
     setLoadingML(true);
@@ -348,60 +374,178 @@ export default function CreateCampaignPage({ onNavigate }) {
     }
   };
 
+  // Evaluate whether form has modified unsaved changes
+  const hasUnsavedChanges = useCallback(() => {
+    if (currentStep > 1) return true;
+    if (campaignId !== null) return true;
+    if (campaignName !== 'Academic Research Symposium Outreach') return true;
+    if (subject !== 'Cross-Institutional Research Initiative — Faculty Collaboration') return true;
+    if (previewText !== 'Reviewing joint computational research opportunities with faculty colleagues.') return true;
+    if (fromName !== 'Sitech Academic Outreach') return true;
+    if (fromEmail !== 'outreach@sitechseries.org') return true;
+    if (replyTo !== 'outreach@sitechseries.org') return true;
+    if (htmlContent.trim() !== '') return true;
+    if (plainText.trim() !== '') return true;
+    if (selectedListIds.length > 0) return true;
+    return false;
+  }, [
+    currentStep,
+    campaignId,
+    campaignName,
+    subject,
+    previewText,
+    fromName,
+    fromEmail,
+    replyTo,
+    htmlContent,
+    plainText,
+    selectedListIds.length,
+  ]);
+
+  // Intercept in-app navigation (sidebar, header, etc.) if unsaved changes exist
+  useEffect(() => {
+    if (!registerNavBlocker) return;
+    registerNavBlocker((targetTab, targetParam) => {
+      if (targetTab === 'create-campaign') return false;
+      const safeTab = (typeof targetTab === 'string' && targetTab.trim().length > 0) ? targetTab.trim() : 'campaigns';
+      const safeParam = (typeof targetTab === 'string') ? (targetParam ?? null) : null;
+
+      if (hasUnsavedChanges()) {
+        setPendingDestination({ tab: safeTab, param: safeParam });
+        setShowLeaveModal(true);
+        return true; // Block immediate navigation
+      }
+      return false; // Proceed directly
+    });
+    return () => registerNavBlocker(null);
+  }, [registerNavBlocker, hasUnsavedChanges]);
+
+  // Standard browser unload warning for tab reload / close
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges()) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep((prev) => prev - 1);
     } else {
-      if (window.confirm('Leave campaign creation? Your draft changes may be lost.')) {
-        onNavigate('campaigns');
-      }
+      const fallbackTab =
+        previousRoute &&
+        typeof previousRoute.tab === 'string' &&
+        previousRoute.tab !== 'create-campaign'
+          ? previousRoute.tab
+          : 'campaigns';
+      const fallbackParam =
+        previousRoute &&
+        typeof previousRoute.tab === 'string' &&
+        previousRoute.tab !== 'create-campaign'
+          ? previousRoute.param ?? null
+          : null;
+      handleExitToCampaigns(fallbackTab, fallbackParam);
     }
   };
 
-  const handleClose = () => {
-    if (window.confirm('Exit campaign creation? Your draft will be saved.')) {
-      onNavigate('campaigns');
+  const handleExitToCampaigns = (targetDestination = 'campaigns', targetParam = null) => {
+    // Strictly sanitize destination: ensure valid route string, reject event objects
+    const isValidString = typeof targetDestination === 'string' && targetDestination.trim().length > 0;
+    const resolvedTab = isValidString ? targetDestination.trim() : 'campaigns';
+    const resolvedParam = isValidString ? (targetParam ?? null) : null;
+
+    if (hasUnsavedChanges()) {
+      setPendingDestination({ tab: resolvedTab, param: resolvedParam });
+      setShowLeaveModal(true);
+    } else {
+      onNavigate(resolvedTab, resolvedParam);
     }
+  };
+
+  const handleConfirmLeave = () => {
+    setShowLeaveModal(false);
+
+    // Retrieve pending destination and clear pending state
+    const target = pendingDestination;
+    setPendingDestination(null);
+
+    // Unregister navigation blocker so it does not block the confirmed departure
+    if (registerNavBlocker) {
+      registerNavBlocker(null);
+    }
+
+    // Determine final destination:
+    // 1) Explicit pendingDestination intercepted by blocker or exit action
+    // 2) Previous valid in-app route if known (and not self)
+    // 3) 'campaigns' as default fallback
+    let destinationTab = 'campaigns';
+    let destinationParam = null;
+
+    if (target && typeof target.tab === 'string' && target.tab.trim().length > 0) {
+      destinationTab = target.tab.trim();
+      destinationParam = target.param ?? null;
+    } else if (
+      previousRoute &&
+      typeof previousRoute.tab === 'string' &&
+      previousRoute.tab.trim().length > 0 &&
+      previousRoute.tab !== 'create-campaign'
+    ) {
+      destinationTab = previousRoute.tab.trim();
+      destinationParam = previousRoute.param ?? null;
+    }
+
+    onNavigate(destinationTab, destinationParam, false, true);
+  };
+
+  const handleCancelLeave = () => {
+    setShowLeaveModal(false);
+    setPendingDestination(null);
   };
 
   const selectedListNames = availableLists
-    .filter((l) => selectedListIds.includes(l.id))
+    .filter((l) => selectedListIds.includes(Number(l.id)))
     .map((l) => l.name);
 
   const grossContactsCount = availableLists
-    .filter((l) => selectedListIds.includes(l.id))
-    .reduce((sum, l) => sum + (l.contact_count || 0), 0);
+    .filter((l) => selectedListIds.includes(Number(l.id)))
+    .reduce((sum, l) => sum + (Number(l.contact_count) || 0), 0);
+
+  const getNextButtonLabel = () => {
+    if (submitting) return 'Saving...';
+    switch (currentStep) {
+      case 1:
+        return 'Continue to Email Design';
+      case 2:
+        return 'Continue to Audience';
+      case 3:
+        return 'Continue to Schedule';
+      case 4:
+        return 'Continue to Review';
+      default:
+        return 'Save & Continue';
+    }
+  };
 
   return (
-    <div className="campaign-wizard-page">
-      {/* 1. Shared Campaign Wizard Header */}
+    <div className="campaign-create-page">
+      {/* 1. Header with Breadcrumbs, Title, Subtitle, and 5-Step Stepper */}
       <CampaignWizardHeader
         currentStep={currentStep}
-        campaignName={campaignName}
-        onNameChange={setCampaignName}
         onStepClick={(step) => setCurrentStep(step)}
-        onBack={handleBack}
-        onClose={handleClose}
+        onBackToCampaigns={() => handleExitToCampaigns('campaigns')}
+        campaignName={campaignName}
       />
 
       {/* 2. Main Step Content Area */}
-      <main className="campaign-wizard-main">
-        {/* Error Alert */}
+      <main className="campaign-create-main">
+        {/* Top-Level Error Alert Banner */}
         {errorMessage && (
-          <div
-            style={{
-              padding: '14px 20px',
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              borderRadius: '12px',
-              color: '#991b1b',
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '24px',
-            }}
-          >
+          <div className="campaign-inline-alert-banner campaign-inline-alert-danger" role="alert">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <AlertTriangle size={18} />
               <span>{errorMessage}</span>
@@ -409,16 +553,25 @@ export default function CreateCampaignPage({ onNavigate }) {
             <button
               type="button"
               onClick={() => setErrorMessage(null)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#991b1b',
+                fontWeight: 700,
+                fontSize: '18px',
+              }}
             >
               ×
             </button>
           </div>
         )}
 
-        {/* Step 1: Content */}
+        {/* Step 1: Campaign Details */}
         {currentStep === 1 && (
-          <ContentStep
+          <CampaignDetailsStep
+            campaignName={campaignName}
+            setCampaignName={setCampaignName}
             subject={subject}
             setSubject={setSubject}
             previewText={previewText}
@@ -431,17 +584,39 @@ export default function CreateCampaignPage({ onNavigate }) {
             setReplyTo={setReplyTo}
             selectedTags={selectedTags}
             setSelectedTags={setSelectedTags}
-            htmlContent={htmlContent}
-            plainText={plainText}
-            onOpenTemplateModal={() => setShowTemplateModal(true)}
-            onOpenHtmlEditor={() => setShowHtmlEditorModal(true)}
             trackingOptions={trackingOptions}
             setTrackingOptions={setTrackingOptions}
+            fieldErrors={fieldErrors}
+            clearFieldError={clearFieldError}
+            onNavigate={onNavigate}
           />
         )}
 
-        {/* Step 2: Choose Contacts */}
+        {/* Step 2: Email Design */}
         {currentStep === 2 && (
+          <EmailDesignStep
+            editorMode={editorMode}
+            setEditorMode={setEditorMode}
+            selectedTemplateId={selectedTemplateId}
+            setSelectedTemplateId={setSelectedTemplateId}
+            htmlContent={htmlContent}
+            setHtmlContent={setHtmlContent}
+            plainText={plainText}
+            setPlainText={setPlainText}
+            subject={subject}
+            setSubject={setSubject}
+            previewText={previewText}
+            setPreviewText={setPreviewText}
+            fromName={fromName}
+            fromEmail={fromEmail}
+            fieldErrors={fieldErrors}
+            clearFieldError={clearFieldError}
+            onNavigate={onNavigate}
+          />
+        )}
+
+        {/* Step 3: Audience */}
+        {currentStep === 3 && (
           <ChooseContactsStep
             availableLists={availableLists}
             selectedListIds={selectedListIds}
@@ -450,6 +625,7 @@ export default function CreateCampaignPage({ onNavigate }) {
             onClearAll={handleClearAllLists}
             audienceSummary={audienceSummary}
             loadingLists={loadingLists}
+            fieldErrors={fieldErrors}
             onRefreshSummary={async () => {
               if (campaignId && selectedListIds.length > 0) {
                 const s = await campaignsApi.selectAudience(campaignId, selectedListIds.map(Number));
@@ -459,8 +635,8 @@ export default function CreateCampaignPage({ onNavigate }) {
           />
         )}
 
-        {/* Step 3: Schedule */}
-        {currentStep === 3 && (
+        {/* Step 4: Schedule */}
+        {currentStep === 4 && (
           <ScheduleStep
             sendImmediately={sendImmediately}
             setSendImmediately={setSendImmediately}
@@ -470,11 +646,14 @@ export default function CreateCampaignPage({ onNavigate }) {
             setScheduledAtTime={setScheduledAtTime}
             timezoneName={timezoneName}
             setTimezoneName={setTimezoneName}
+            fieldErrors={fieldErrors}
+            clearFieldError={clearFieldError}
+            onNavigate={onNavigate}
           />
         )}
 
-        {/* Step 4: Review */}
-        {currentStep === 4 && (
+        {/* Step 5: Review */}
+        {currentStep === 5 && (
           <ReviewStep
             campaignName={campaignName}
             subject={subject}
@@ -482,6 +661,9 @@ export default function CreateCampaignPage({ onNavigate }) {
             fromName={fromName}
             fromEmail={fromEmail}
             replyTo={replyTo}
+            selectedTags={selectedTags}
+            editorMode={editorMode}
+            selectedTemplateId={selectedTemplateId}
             htmlContent={htmlContent}
             selectedListNames={selectedListNames}
             grossContacts={grossContactsCount}
@@ -508,25 +690,21 @@ export default function CreateCampaignPage({ onNavigate }) {
           />
         )}
 
-        {/* Wizard Step Navigation Footer (Steps 1, 2, 3) */}
-        {currentStep < 4 && (
-          <div
-            style={{
-              marginTop: '32px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderTop: '1px solid #e2e8f0',
-              paddingTop: '20px',
-            }}
-          >
+        {/* 3. Wizard Step Navigation Footer (Steps 1, 2, 3, 4) */}
+        {currentStep < 5 && (
+          <div className="campaign-wizard-footer">
             <button
               type="button"
               onClick={handleBack}
               className="campaign-action-btn-secondary"
             >
-              <ArrowLeft size={15} /> Back
+              <ArrowLeft size={15} />
+              <span>{currentStep === 1 ? 'Cancel & Return' : 'Previous Step'}</span>
             </button>
+
+            <span className="campaign-footer-step-counter">
+              Step {currentStep} of {CAMPAIGN_STEPS.length} · {CAMPAIGN_STEPS[currentStep - 1]?.label}
+            </span>
 
             <button
               type="button"
@@ -535,32 +713,30 @@ export default function CreateCampaignPage({ onNavigate }) {
                 if (currentStep === 1) handleProceedFromStep1();
                 else if (currentStep === 2) handleProceedFromStep2();
                 else if (currentStep === 3) handleProceedFromStep3();
+                else if (currentStep === 4) handleProceedFromStep4();
               }}
               className="campaign-action-btn-primary"
             >
-              {submitting ? 'Saving...' : 'Save & Continue'} <ArrowRight size={15} />
+              <span>{getNextButtonLabel()}</span>
+              <ArrowRight size={15} />
             </button>
           </div>
         )}
       </main>
 
-      {/* Modals */}
-      <TemplateSelectionModal
-        isOpen={showTemplateModal}
-        onClose={() => setShowTemplateModal(false)}
-        onSelectTemplate={handleApplyTemplate}
-        onOpenHtmlEditor={() => setShowHtmlEditorModal(true)}
-      />
-
-      <HtmlEditorModal
-        isOpen={showHtmlEditorModal}
-        onClose={() => setShowHtmlEditorModal(false)}
-        initialHtml={htmlContent}
-        initialPlainText={plainText}
-        onSave={(data) => {
-          setHtmlContent(data.html_content);
-          setPlainText(data.plain_text);
-        }}
+      {/* Centered Unsaved Changes Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showLeaveModal}
+        type="warning"
+        title="Leave campaign creation?"
+        message="Any unsaved changes may be lost. Are you sure you want to leave this page?"
+        cancelLabel="Stay on Page"
+        confirmLabel="Discard Changes & Leave"
+        confirmVariant="danger"
+        autoFocus="cancel"
+        onCancel={handleCancelLeave}
+        onConfirm={handleConfirmLeave}
+        onClose={handleCancelLeave}
       />
     </div>
   );

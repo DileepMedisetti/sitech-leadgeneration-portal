@@ -51,8 +51,8 @@ export default function SearchJobsPage({ onNavigate }) {
   return (
     <div>
       {/* Action Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {filterButtons.map((btn) => (
             <button
               key={btn.value}

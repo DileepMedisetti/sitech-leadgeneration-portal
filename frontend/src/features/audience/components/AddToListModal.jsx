@@ -26,6 +26,9 @@ export default function AddToListModal({
       return;
     }
 
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const fetchLists = async () => {
       try {
         setLoading(true);
@@ -43,6 +46,10 @@ export default function AddToListModal({
     };
 
     fetchLists();
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;

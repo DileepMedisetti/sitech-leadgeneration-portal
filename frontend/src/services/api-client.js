@@ -474,6 +474,9 @@ export const campaignsApi = {
 
   cancel: (id, options = {}) =>
     apiClient.post(`/api/campaigns/${id}/cancel`, null, options).then((res) => res.data),
+
+  getSenderIdentities: (options = {}) =>
+    apiClient.get('/api/campaigns/sender-identities', options).then((res) => res.data),
 };
 
 // ==============================================================================
@@ -537,4 +540,65 @@ export const deliverabilityApi = {
         ...options,
       })
       .then((res) => res.data),
+};
+
+// ==============================================================================
+// Authentication API
+// ==============================================================================
+export const authApi = {
+  requestOtp: (email, options = {}) =>
+    apiClient.post('/api/auth/request-otp', { email }, options).then((res) => res.data),
+
+  verifyOtp: (email, otpCode, options = {}) =>
+    apiClient.post('/api/auth/verify-otp', { email, otp_code: otpCode }, options).then((res) => res.data),
+
+  getMe: (options = {}) =>
+    apiClient.get('/api/auth/me', options).then((res) => res.data),
+
+  logout: (options = {}) =>
+    apiClient.post('/api/auth/logout', null, options).then((res) => res.data),
+};
+
+// ==============================================================================
+// Email Accounts API
+// ==============================================================================
+export const emailAccountsApi = {
+  list: (options = {}) =>
+    apiClient.get('/api/email-accounts', options).then((res) => res.data),
+
+  listDeleted: (options = {}) =>
+    apiClient.get('/api/email-accounts/deleted', options).then((res) => res.data),
+
+  requestConnectCode: (data, options = {}) =>
+    apiClient.post('/api/email-accounts/connect/request-code', data, options).then((res) => res.data),
+
+  verifyConnectCode: (data, options = {}) =>
+    apiClient.post('/api/email-accounts/connect/verify-code', data, options).then((res) => res.data),
+
+  create: (data, options = {}) =>
+    apiClient.post('/api/email-accounts', data, options).then((res) => res.data),
+
+  get: (id, options = {}) =>
+    apiClient.get(`/api/email-accounts/${id}`, options).then((res) => res.data),
+
+  update: (id, data, options = {}) =>
+    apiClient.patch(`/api/email-accounts/${id}`, data, options).then((res) => res.data),
+
+  activate: (id, options = {}) =>
+    apiClient.post(`/api/email-accounts/${id}/activate`, null, options).then((res) => res.data),
+
+  deactivate: (id, options = {}) =>
+    apiClient.post(`/api/email-accounts/${id}/deactivate`, null, options).then((res) => res.data),
+
+  delete: (id, options = {}) =>
+    apiClient.delete(`/api/email-accounts/${id}`, options).then((res) => res.data),
+
+  restore: (id, options = {}) =>
+    apiClient.post(`/api/email-accounts/${id}/restore`, null, options).then((res) => res.data),
+
+  permanentlyDelete: (id, options = {}) =>
+    apiClient.delete(`/api/email-accounts/${id}/permanent`, options).then((res) => res.data),
+
+  verify: (id, options = {}) =>
+    apiClient.post(`/api/email-accounts/${id}/verify`, null, options).then((res) => res.data),
 };

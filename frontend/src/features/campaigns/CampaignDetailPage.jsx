@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { campaignsApi, deliverabilityApi } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
+import ConfirmationModal from '../../components/ui/ConfirmationModal';
 import DeliverabilityPanel from './components/DeliverabilityPanel';
 import PlacementTestPanel from './components/PlacementTestPanel';
 import MLPredictionPanel from './components/MLPredictionPanel';
@@ -31,6 +32,14 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
   const [loadingPlacement, setLoadingPlacement] = useState(false);
   const [loadingML, setLoadingML] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Centered Feedback Modal State
+  const [feedbackModal, setFeedbackModal] = useState({
+    isOpen: false,
+    type: 'danger',
+    title: '',
+    message: '',
+  });
 
   const fetchCampaign = () => {
     if (!campaignId) return;
@@ -56,7 +65,12 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
       const report = await deliverabilityApi.analyzeCampaign(campaignId);
       setCampaign((prev) => ({ ...prev, latest_deliverability_report: report }));
     } catch (err) {
-      alert(err.message || 'Deliverability analysis failed.');
+      setFeedbackModal({
+        isOpen: true,
+        type: 'danger',
+        title: 'Deliverability Analysis Failed',
+        message: err.message || 'Deliverability analysis could not be completed at this time.',
+      });
     } finally {
       setLoadingAnalysis(false);
     }
@@ -70,7 +84,12 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
       });
       setCampaign((prev) => ({ ...prev, latest_placement_test: testResult }));
     } catch (err) {
-      alert(err.message || 'Placement test failed.');
+      setFeedbackModal({
+        isOpen: true,
+        type: 'danger',
+        title: 'Placement Test Failed',
+        message: err.message || 'Placement test simulation failed. Please try again.',
+      });
     } finally {
       setLoadingPlacement(false);
     }
@@ -82,7 +101,12 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
       const pred = await deliverabilityApi.getMLPrediction(campaignId);
       setCampaign((prev) => ({ ...prev, latest_ml_prediction: pred }));
     } catch (err) {
-      alert(err.message || 'ML prediction request failed.');
+      setFeedbackModal({
+        isOpen: true,
+        type: 'danger',
+        title: 'ML Prediction Request Failed',
+        message: err.message || 'Machine learning placement forecast request failed.',
+      });
     } finally {
       setLoadingML(false);
     }
@@ -94,7 +118,12 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
       await campaignsApi.pause(campaignId);
       fetchCampaign();
     } catch (err) {
-      alert(err.message || 'Failed to pause campaign.');
+      setFeedbackModal({
+        isOpen: true,
+        type: 'danger',
+        title: 'Failed to Pause Campaign',
+        message: err.message || 'The campaign could not be paused. Please verify your connection.',
+      });
     } finally {
       setActionLoading(false);
     }
@@ -106,7 +135,12 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
       await campaignsApi.resume(campaignId);
       fetchCampaign();
     } catch (err) {
-      alert(err.message || 'Failed to resume campaign.');
+      setFeedbackModal({
+        isOpen: true,
+        type: 'danger',
+        title: 'Failed to Resume Campaign',
+        message: err.message || 'The campaign could not be resumed. Please verify your connection.',
+      });
     } finally {
       setActionLoading(false);
     }
@@ -171,7 +205,7 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
       </div>
 
       {/* Workspace Sub-Navigation Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', gap: '4px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', gap: '4px', overflowX: 'auto', maxWidth: '100%' }}>
         {[
           { id: 'overview', label: 'Overview & Email Content', icon: FileText },
           { id: 'deliverability', label: 'Spam Risk Analysis', icon: ShieldCheck },
@@ -288,6 +322,19 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
           onRequestPrediction={handleRequestML}
         />
       )}
+
+      {/* Centered Feedback Modal */}
+      <ConfirmationModal
+        isOpen={feedbackModal.isOpen}
+        type={feedbackModal.type}
+        title={feedbackModal.title}
+        message={feedbackModal.message}
+        confirmLabel="Dismiss"
+        cancelLabel={null}
+        confirmVariant="danger"
+        onClose={() => setFeedbackModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={() => setFeedbackModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

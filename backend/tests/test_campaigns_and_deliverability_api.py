@@ -9,9 +9,54 @@ from app.main import app
 from app.models.campaign import Campaign, CampaignContent
 from app.models.contact_list import ContactList, ContactListMember
 from app.models.lead import Lead
+from app.models.email_account import EmailAccount
+from app.models.user import User
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def setup_test_senders():
+    db = next(get_db())
+    try:
+        user = db.query(User).filter(User.email == "committee@sitechseries.org").first()
+        if not user:
+            user = User(
+                email="committee@sitechseries.org",
+                normalized_email="committee@sitechseries.org",
+                display_name="Committee",
+                is_active=True,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        for email, name in [
+            ("committee@sitechseries.org", "Symposium Committee"),
+            ("s.connor@sitechseries.org", "Dr. Sarah Connor"),
+        ]:
+            acc = db.query(EmailAccount).filter(EmailAccount.normalized_email == email.lower()).first()
+            if not acc:
+                acc = EmailAccount(
+                    email_address=email,
+                    normalized_email=email.lower(),
+                    from_name=name,
+                    provider="smtp",
+                    is_active=True,
+                    verification_status="verified",
+                    provider_status="ready",
+                    owner_user_id=user.id,
+                )
+                db.add(acc)
+            else:
+                acc.is_active = True
+                acc.verification_status = "verified"
+                acc.provider_status = "ready"
+                acc.archived_at = None
+        db.commit()
+    finally:
+        db.close()
 
 
 def test_campaign_crud_and_lifecycle():

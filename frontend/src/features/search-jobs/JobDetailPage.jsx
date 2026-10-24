@@ -249,7 +249,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
   return (
     <div>
       {/* Top Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
         <button onClick={() => onNavigate('jobs')} className="btn btn-secondary btn-sm">
           <ArrowLeft size={14} /> Back to Search Jobs
         </button>
@@ -338,7 +338,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
 
       {/* Workspace Header Card */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
@@ -359,7 +359,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
         </div>
 
         {/* Dual Progress Bars */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', padding: '12px 0 6px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', padding: '12px 0 6px' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
               <span>Target Lead Progress</span>
@@ -398,7 +398,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
         </div>
 
         {/* Results Outcome Breakdown Chips */}
-        <div style={{ display: 'flex', gap: '12px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
           <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
             Total Discovered: <strong>{job.results_count}</strong>
           </div>
@@ -418,7 +418,7 @@ export default function JobDetailPage({ jobId, onNavigate }) {
       </div>
 
       {/* Workspace Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
         <button
           onClick={() => setActiveTab('results')}
           className={`btn btn-sm ${activeTab === 'results' ? 'btn-primary' : 'btn-secondary'}`}

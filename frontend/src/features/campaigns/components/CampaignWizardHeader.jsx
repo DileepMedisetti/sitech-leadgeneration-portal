@@ -1,170 +1,191 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Check, Edit2, X } from 'lucide-react';
-
-const STEPS = [
-  { id: 1, label: 'Content' },
-  { id: 2, label: 'Choose Contacts' },
-  { id: 3, label: 'Schedule' },
-  { id: 4, label: 'Review' },
-];
+import React from 'react';
+import { ArrowLeft, Check, ChevronRight } from 'lucide-react';
+import { CAMPAIGN_STEPS } from '../campaignConstants';
 
 export default function CampaignWizardHeader({
-  currentStep,
-  campaignName,
-  onNameChange,
+  currentStep = 1,
   onStepClick,
-  onBack,
-  onClose,
+  onBackToCampaigns,
+  campaignName = '',
 }) {
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [tempName, setTempName] = useState(campaignName || 'Untitled Campaign');
+  const currentStepObj = CAMPAIGN_STEPS.find((s) => s.id === currentStep) || CAMPAIGN_STEPS[0];
+  const progressPercent = Math.round(((currentStep - 1) / (CAMPAIGN_STEPS.length - 1)) * 100);
 
-  const handleFinishEditing = () => {
-    setIsEditingName(false);
-    const trimmed = tempName.trim();
-    if (trimmed && onNameChange) {
-      onNameChange(trimmed);
-    } else {
-      setTempName(campaignName || 'Untitled Campaign');
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      handleFinishEditing();
-    } else if (e.key === 'Escape') {
-      setTempName(campaignName || 'Untitled Campaign');
-      setIsEditingName(false);
+  const handleBackToCampaignsClick = (e) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof onBackToCampaigns === 'function') {
+      onBackToCampaigns();
     }
   };
 
   return (
-    <header className="campaign-wizard-header" role="banner">
-      {/* 1. Left Section: Back Button */}
-      <div className="campaign-header-left">
+    <div className="campaign-wizard-top">
+      {/* 1. Breadcrumbs and Page-Level Back Navigation */}
+      <div className="campaign-top-bar">
+        <nav aria-label="Breadcrumb" className="campaign-breadcrumb">
+          <button
+            type="button"
+            onClick={handleBackToCampaignsClick}
+            className="campaign-breadcrumb-link"
+          >
+            Campaigns
+          </button>
+          <ChevronRight size={14} className="campaign-breadcrumb-separator" />
+          <span className="campaign-breadcrumb-current" aria-current="page">
+            Create Campaign
+          </span>
+          {campaignName && campaignName.trim() && (
+            <>
+              <span className="campaign-breadcrumb-dot">·</span>
+              <span className="campaign-breadcrumb-draft" title={campaignName}>
+                {campaignName}
+              </span>
+            </>
+          )}
+        </nav>
+
         <button
           type="button"
-          onClick={onBack}
-          className="campaign-header-back-btn"
-          title="Back to previous step or campaigns"
+          onClick={handleBackToCampaignsClick}
+          className="campaign-back-btn"
+          title="Return to campaigns list"
         >
-          <ArrowLeft size={15} />
-          <span>Back</span>
+          <ArrowLeft size={14} />
+          <span>Back to Campaigns</span>
         </button>
       </div>
 
-      <div className="campaign-header-divider" />
-
-      {/* 2. Campaign Name Section with Edit Icon */}
-      <div className="campaign-header-name-section">
-        {isEditingName ? (
-          <input
-            type="text"
-            className="campaign-header-rename-input"
-            value={tempName}
-            autoFocus
-            onChange={(e) => setTempName(e.target.value)}
-            onBlur={handleFinishEditing}
-            onKeyDown={handleKeyDown}
-          />
-        ) : (
-          <div className="campaign-header-title-box">
-            <span
-              className="campaign-header-title-text"
-              title={campaignName || 'Untitled Campaign'}
-            >
-              {campaignName || 'Untitled Campaign'}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setTempName(campaignName || 'Untitled Campaign');
-                setIsEditingName(true);
-              }}
-              className="campaign-header-rename-btn"
-              title="Click to rename campaign"
-              aria-label="Rename campaign"
-            >
-              <Edit2 size={13} />
-            </button>
-          </div>
-        )}
+      {/* 2. Header Title and Descriptive Subtitle */}
+      <div className="campaign-page-title-block">
+        <h1 className="campaign-page-title">Create Email Campaign</h1>
+        <p className="campaign-page-subtitle">
+          Configure sender identities, design responsive templates, select targeted audience lists, and verify deliverability before launch.
+        </p>
       </div>
 
-      <div className="campaign-header-divider" />
-
-      {/* 3. Center Section: 4-Step Progress Indicator */}
-      <div className="campaign-header-center">
-        <nav
-          aria-label="Campaign Creation Progress"
-          className="campaign-stepper-container"
-        >
-          {STEPS.map((step, idx) => {
+      {/* 3. Horizontal Stepper Container */}
+      <div className="campaign-stepper-wrapper">
+        {/* Desktop Stepper */}
+        <nav aria-label="Campaign Creation Progress" className="campaign-stepper-desktop">
+          {CAMPAIGN_STEPS.map((step, idx) => {
             const isCompleted = step.id < currentStep;
             const isActive = step.id === currentStep;
+            const canNavigate = isCompleted && onStepClick;
 
             return (
               <React.Fragment key={step.id}>
                 <div
-                  className={`campaign-step-item ${
-                    isCompleted ? 'step-completed' : isActive ? 'step-active' : 'step-upcoming'
-                  }`}
+                  role={canNavigate ? 'button' : undefined}
+                  tabIndex={canNavigate ? 0 : undefined}
                   onClick={() => {
-                    if (isCompleted && onStepClick) {
+                    if (canNavigate) onStepClick(step.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (canNavigate && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
                       onStepClick(step.id);
                     }
                   }}
-                  style={{
-                    cursor: isCompleted ? 'pointer' : 'default',
-                  }}
+                  className={`campaign-step-node ${
+                    isCompleted
+                      ? 'step-completed'
+                      : isActive
+                      ? 'step-active'
+                      : 'step-upcoming'
+                  }`}
+                  title={
+                    canNavigate
+                      ? `Click to return to Step ${step.id}: ${step.label}`
+                      : isActive
+                      ? `Current Step: ${step.label}`
+                      : `Step ${step.id}: ${step.label}`
+                  }
                 >
-                  {/* Step Circle Indicator */}
+                  {/* Step Indicator Circle */}
                   <div
-                    className={`campaign-step-circle ${
+                    className={`campaign-step-badge ${
                       isCompleted
-                        ? 'campaign-step-circle-completed'
+                        ? 'badge-completed'
                         : isActive
-                        ? 'campaign-step-circle-active'
-                        : 'campaign-step-circle-upcoming'
+                        ? 'badge-active'
+                        : 'badge-upcoming'
                     }`}
                   >
-                    {isCompleted ? <Check size={13} strokeWidth={3} /> : step.id}
+                    {isCompleted ? (
+                      <Check size={13} strokeWidth={2.75} aria-hidden="true" />
+                    ) : (
+                      <span>{step.id}</span>
+                    )}
                   </div>
 
-                  {/* Step Label */}
-                  <span className="campaign-step-label">
-                    {step.label}
-                  </span>
+                  {/* Step Labels */}
+                  <div className="campaign-step-text-col">
+                    <span className="campaign-step-title">{step.label}</span>
+                    <span className="campaign-step-desc">{step.desc}</span>
+                  </div>
                 </div>
 
                 {/* Connecting Line between steps */}
-                {idx < STEPS.length - 1 && (
+                {idx < CAMPAIGN_STEPS.length - 1 && (
                   <div
-                    className={`campaign-step-line ${
-                      step.id < currentStep ? 'line-completed' : 'line-upcoming'
+                    className={`campaign-step-track ${
+                      step.id < currentStep ? 'track-completed' : 'track-upcoming'
                     }`}
+                    aria-hidden="true"
                   />
                 )}
               </React.Fragment>
             );
           })}
         </nav>
-      </div>
 
-      <div className="campaign-header-divider" />
+        {/* Compact Mobile / Tablet Stepper */}
+        <div className="campaign-stepper-mobile">
+          <div className="campaign-stepper-mobile-info">
+            <span className="campaign-mobile-step-number">
+              Step {currentStep} of {CAMPAIGN_STEPS.length}
+            </span>
+            <span className="campaign-mobile-step-name">
+              {currentStepObj.label}
+            </span>
+          </div>
 
-      {/* 4. Right Section: Close Button */}
-      <div className="campaign-header-right">
-        <button
-          type="button"
-          onClick={onClose}
-          className="campaign-header-close-btn"
-          title="Save and exit"
-          aria-label="Close and save draft"
-        >
-          <X size={17} />
-        </button>
+          <div
+            className="campaign-mobile-progress-track"
+            role="progressbar"
+            aria-valuenow={progressPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className="campaign-mobile-progress-fill"
+              style={{ width: `${Math.max(12, progressPercent)}%` }}
+            />
+          </div>
+
+          {/* Quick step navigation pills for mobile */}
+          <div className="campaign-mobile-step-pills">
+            {CAMPAIGN_STEPS.map((s) => {
+              const isPast = s.id < currentStep;
+              const isCurr = s.id === currentStep;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  disabled={!isPast}
+                  onClick={() => isPast && onStepClick && onStepClick(s.id)}
+                  className={`campaign-mobile-pill ${
+                    isPast ? 'pill-past' : isCurr ? 'pill-current' : 'pill-future'
+                  }`}
+                  aria-label={`Step ${s.id}: ${s.shortLabel}`}
+                >
+                  {isPast ? <Check size={11} strokeWidth={3} /> : s.id}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
-    </header>
+    </div>
   );
 }

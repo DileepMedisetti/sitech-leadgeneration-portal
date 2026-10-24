@@ -50,6 +50,11 @@ export default function CustomizeColumnsDrawer({ isOpen, onClose, visibleColumns
   useEffect(() => {
     if (isOpen) {
       setDraft(visibleColumns);
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
     }
   }, [isOpen, visibleColumns]);
 
@@ -95,6 +100,7 @@ export default function CustomizeColumnsDrawer({ isOpen, onClose, visibleColumns
       <div
         style={{
           width: 'clamp(320px, 62vw, 820px)',
+          maxWidth: '100%',
           height: '100%',
           backgroundColor: '#ffffff',
           boxShadow: '-8px 0 32px rgba(0, 0, 0, 0.12)',

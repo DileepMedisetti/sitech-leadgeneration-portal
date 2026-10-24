@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   LayoutDashboard,
   Search,
@@ -10,8 +10,7 @@ import {
   CheckSquare,
   BarChart2,
   Settings,
-  ChevronLeft,
-  ChevronRight,
+  Mail,
   X,
 } from 'lucide-react';
 
@@ -20,10 +19,63 @@ export default function Sidebar({
   onSelectTab,
   isOpen,
   onClose,
-  isCollapsed,
-  onToggleCollapse,
 }) {
   const [logoFailed, setLogoFailed] = useState(false);
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const hoverTimeoutRef = useRef(null);
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsSidebarHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    // Subtle anti-flicker delay before collapsing
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsSidebarHovered(false);
+    }, 120);
+  };
+
+  // Immediate collapse when a navigation item is clicked
+  const handleNavClick = (tabId) => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsSidebarHovered(false);
+    onSelectTab(tabId);
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Lock body scroll when mobile sidebar drawer is open
+  useEffect(() => {
+    if (isOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isOpen]);
+
+  const isExpanded = isSidebarHovered || isOpen;
 
   const navSections = [
     {
@@ -65,21 +117,26 @@ export default function Sidebar({
         />
       )}
 
-      <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isOpen ? 'mobile-open' : ''}`}>
-        {/* Brand & Top Right Collapse Header */}
+      <aside
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className={`sidebar ${isSidebarHovered ? 'is-hovered' : ''} ${isOpen ? 'mobile-open' : ''}`}
+        aria-label="Application Sidebar"
+      >
+        {/* Brand & Top Header */}
         <div
           style={{
-            padding: isCollapsed ? '16px 8px' : '16px 18px',
+            padding: !isExpanded ? '16px 8px' : '16px 18px',
             borderBottom: '1px solid var(--bg-sidebar-border)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: isCollapsed ? 'center' : 'space-between',
+            justifyContent: !isExpanded ? 'center' : 'space-between',
             minHeight: '76px',
             gap: '8px',
             boxSizing: 'border-box',
           }}
         >
-          {!isCollapsed ? (
+          {isExpanded ? (
             <>
               {/* Brand Logo & Name */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', overflow: 'hidden' }}>
@@ -116,8 +173,8 @@ export default function Sidebar({
                 </div>
               </div>
 
-              {/* Mobile Close Button OR Desktop Top Right Collapse Button */}
-              {isOpen ? (
+              {/* Mobile Close Button (shown only when opened as mobile drawer) */}
+              {isOpen && (
                 <button
                   onClick={onClose}
                   className="sidebar-collapse-btn"
@@ -137,40 +194,18 @@ export default function Sidebar({
                 >
                   <X size={16} />
                 </button>
-              ) : (
-                <button
-                  onClick={onToggleCollapse}
-                  className="sidebar-collapse-btn"
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-secondary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    flexShrink: 0,
-                  }}
-                  title="Collapse sidebar (Ctrl+[)"
-                  aria-label="Collapse sidebar"
-                >
-                  <ChevronLeft size={16} />
-                </button>
               )}
             </>
           ) : (
-            /* Collapsed Mode: Top Expand Button & Icon */
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            /* Collapsed & Not Hovered: Compact Branding */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <img
                 src="/logo.png"
                 alt="Lead Intelligence"
                 title="Lead Intelligence"
                 onError={() => setLogoFailed(true)}
                 style={{
-                  maxHeight: '26px',
+                  maxHeight: '28px',
                   maxWidth: '36px',
                   width: 'auto',
                   height: 'auto',
@@ -178,26 +213,6 @@ export default function Sidebar({
                   display: 'block',
                 }}
               />
-              <button
-                onClick={onToggleCollapse}
-                className="sidebar-collapse-btn"
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-                title="Expand sidebar (Ctrl+[)"
-                aria-label="Expand sidebar"
-              >
-                <ChevronRight size={16} />
-              </button>
             </div>
           )}
         </div>
@@ -221,10 +236,7 @@ export default function Sidebar({
                 return (
                   <div key={item.id} className="nav-btn-wrapper">
                     <button
-                      onClick={() => {
-                        onSelectTab(item.id);
-                        if (onClose) onClose();
-                      }}
+                      onClick={() => handleNavClick(item.id)}
                       className={`nav-item-btn ${active ? 'active' : ''}`}
                       aria-label={item.label}
                       aria-current={active ? 'page' : undefined}
@@ -242,8 +254,8 @@ export default function Sidebar({
                       <span className="nav-item-label">{item.label}</span>
                     </button>
 
-                    {/* Tooltip shown only in collapsed mode */}
-                    {isCollapsed && (
+                    {/* Tooltip shown only in collapsed mode when not expanded */}
+                    {!isExpanded && (
                       <span className="sidebar-tooltip">
                         {item.label}
                       </span>

@@ -132,7 +132,7 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {candidates.map((cand) => (
             <div key={cand.id} className="card" style={{ margin: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '12px' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
@@ -151,7 +151,7 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button
                     onClick={() => handleReject(cand.id)}
                     disabled={actionLoadingId === cand.id}
@@ -191,7 +191,7 @@ export default function ReviewQueuePage({ onNavigate: _onNavigate }) {
 
 
               {/* Details grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
                 <div>
                   <span style={{ color: 'var(--text-muted)' }}>Role / Title:</span>{' '}
                   <strong>{cand.profession || 'Not explicitly stated'}</strong>

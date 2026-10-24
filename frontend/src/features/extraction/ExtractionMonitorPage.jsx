@@ -237,7 +237,7 @@ export default function ExtractionMonitorPage({ onNavigate: _onNavigate }) {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ minWidth: '320px', flex: 1 }}>
+          <div style={{ minWidth: 0, flex: '1 1 240px' }}>
             <label className="form-label">Select Search Job Queue</label>
             <select
               value={selectedJobId}
@@ -351,7 +351,7 @@ export default function ExtractionMonitorPage({ onNavigate: _onNavigate }) {
 
       {/* Queue Status Breakdown */}
       {selectedJob && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '20px' }}>
           <div className="card" style={{ margin: 0, textAlign: 'center', borderTop: '3px solid var(--warning)' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pending URLs</div>
             <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--warning-text)', marginTop: '4px' }}>
