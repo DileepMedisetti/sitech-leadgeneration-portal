@@ -1,0 +1,84 @@
+@tailwind components;
+@tailwind utilities;
+
+/* Scoped Authentication Styles & Responsive Behavior */
+
+.auth-page-container {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  background-color: #f8fafc;
+  font-family: inherit;
+  overflow: hidden;
+}
+
+/* Subtle background pattern for auth panel */
+.auth-grid-pattern {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Input focus ring animation */
+.auth-input-focus:focus-within {
+  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.18);
+}
+
+.auth-input-error:focus-within {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+/* OTP individual digit input */
+.otp-digit-input {
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.otp-digit-input:focus {
+  border-color: #4361ee !important;
+  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.18) !important;
+  background-color: #ffffff !important;
+}
+
+/* Animations */
+@keyframes authModalBackdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes authModalContent {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.auth-modal-backdrop {
+  animation: authModalBackdrop 180ms ease-out forwards;
+}
+
+.auth-modal-content {
+  animation: authModalContent 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Mobile responsive constraints */
+@media (max-width: 900px) {
+  .auth-page-container {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+  .auth-left-brand-panel {
+    display: none !important;
+  }
+  .auth-right-form-panel {
+    width: 100% !important;
+    min-height: 100dvh;
+    padding: 32px 18px !important;
+  }
+}

@@ -72,9 +72,10 @@ export default function ReviewStep({
 
   const currentTemplate = CURATED_TEMPLATES.find((t) => t.id === selectedTemplateId);
 
-  const formattedScheduledTime = !sendImmediately && scheduledAtDate
-    ? `${scheduledAtDate} at ${scheduledAtTime || '09:00'} (${timezoneName || 'UTC'})`
-    : 'Immediate delivery upon launch confirmation';
+  const formattedScheduledTime =
+    !sendImmediately && scheduledAtDate
+      ? `${scheduledAtDate} at ${scheduledAtTime || '09:00'} (${timezoneName || 'UTC'})`
+      : 'Immediate delivery upon launch confirmation';
 
   return (
     <div className="campaign-step-container">
@@ -85,7 +86,7 @@ export default function ReviewStep({
         }`}
       >
         <div className="campaign-preflight-icon-box">
-          {blockers.length > 0 ? <AlertTriangle size={22} /> : <CheckCircle2 size={22} />}
+          {blockers.length > 0 ? <AlertTriangle size={24} /> : <CheckCircle2 size={24} />}
         </div>
         <div className="campaign-preflight-body">
           <h3 className="campaign-preflight-heading">
@@ -95,7 +96,7 @@ export default function ReviewStep({
           </h3>
           <p className="campaign-preflight-message">
             {blockers.length > 0
-              ? 'Address the required deliverability blockers below before launching this campaign.'
+              ? 'Please resolve the following required deliverability and compliance items before launching.'
               : 'All sender alignments, audience deduplication checks, and compliance guidelines verified.'}
           </p>
 
@@ -115,7 +116,7 @@ export default function ReviewStep({
         </div>
       </div>
 
-      {/* 2. Structured Review Cards Grid */}
+      {/* 2. Structured Review Cards Grid (2x2) */}
       <div className="campaign-review-grid">
         {/* Card 1: Campaign & Sender Details */}
         <div className="campaign-card campaign-card-padded campaign-review-card">
@@ -168,7 +169,7 @@ export default function ReviewStep({
             )}
             {selectedTags && selectedTags.length > 0 && (
               <div className="campaign-review-row">
-                <span className="campaign-review-label">Campaign Tags:</span>
+                <span className="campaign-review-label">Tags:</span>
                 <div className="campaign-review-tags">
                   {selectedTags.map((tag) => (
                     <span key={tag} className="campaign-review-tag-chip">
@@ -217,7 +218,7 @@ export default function ReviewStep({
             <div className="campaign-review-row">
               <span className="campaign-review-label">Content Size:</span>
               <span className="campaign-review-value">
-                {htmlContent ? `${htmlContent.length} characters` : '0 characters'}
+                {htmlContent ? `${htmlContent.length.toLocaleString()} characters` : '0 characters'}
               </span>
             </div>
           </div>
@@ -256,9 +257,7 @@ export default function ReviewStep({
             <div className="campaign-review-row">
               <span className="campaign-review-label">Selected Lists:</span>
               <span className="campaign-review-value campaign-review-value-bold">
-                {selectedListNames.length > 0
-                  ? selectedListNames.join(', ')
-                  : 'No lists selected'}
+                {selectedListNames.length > 0 ? selectedListNames.join(', ') : 'No lists selected'}
               </span>
             </div>
             <div className="campaign-review-row">
@@ -275,9 +274,7 @@ export default function ReviewStep({
             </div>
             <div className="campaign-review-row">
               <span className="campaign-review-label">Deduplication:</span>
-              <span className="campaign-review-value">
-                Automatic by normalized email
-              </span>
+              <span className="campaign-review-value">Automatic by normalized email</span>
             </div>
           </div>
         </div>
@@ -309,9 +306,7 @@ export default function ReviewStep({
             </div>
             <div className="campaign-review-row">
               <span className="campaign-review-label">Delivery Timing:</span>
-              <span className="campaign-review-value">
-                {formattedScheduledTime}
-              </span>
+              <span className="campaign-review-value">{formattedScheduledTime}</span>
             </div>
             <div className="campaign-review-row">
               <span className="campaign-review-label">Open Tracking:</span>
@@ -334,7 +329,7 @@ export default function ReviewStep({
         <div className="campaign-section-header">
           <h3 className="campaign-section-title">Deliverability Intelligence & Verification</h3>
           <p className="campaign-section-subtitle">
-            Inspect automated spam filters, controlled seedbox inbox placement, and predictive machine learning models.
+            Inspect automated spam filter heuristics, controlled seedbox placement, and predictive machine learning models.
           </p>
         </div>
 
@@ -393,7 +388,7 @@ export default function ReviewStep({
             <PlacementTestPanel
               placementTest={placementTest}
               loading={loadingPlacement}
-              onRunPlacementTest={onRunPlacementTest}
+              onRunTest={onRunPlacementTest}
             />
           )}
 
@@ -407,7 +402,7 @@ export default function ReviewStep({
         </div>
       </div>
 
-      {/* 4. Final Launch Execution Card */}
+      {/* 4. Final Launch Execution CTA Card */}
       <div className="campaign-card campaign-card-padded campaign-launch-cta-card">
         <div className="campaign-launch-cta-content">
           <div className="campaign-launch-cta-text">
@@ -471,7 +466,9 @@ export default function ReviewStep({
                 </div>
                 <div className="campaign-modal-summary-row">
                   <span>Sender:</span>
-                  <span>{fromName} &lt;{fromEmail}&gt;</span>
+                  <span>
+                    {fromName} &lt;{fromEmail}&gt;
+                  </span>
                 </div>
                 <div className="campaign-modal-summary-row">
                   <span>Timing:</span>
@@ -536,19 +533,28 @@ export default function ReviewStep({
             </div>
 
             <div className="campaign-modal-body" style={{ backgroundColor: '#f8fafc', padding: '24px' }}>
-              <div className="campaign-preview-inbox-header" style={{ marginBottom: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div
+                className="campaign-preview-inbox-header"
+                style={{ marginBottom: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+              >
                 <div className="campaign-inbox-header-row">
                   <span className="campaign-inbox-header-label">Subject:</span>
-                  <span className="campaign-inbox-header-subject">{renderPersonalizedText(subject)}</span>
+                  <span className="campaign-inbox-header-subject">
+                    {renderPersonalizedText(subject)}
+                  </span>
                 </div>
                 <div className="campaign-inbox-header-row">
                   <span className="campaign-inbox-header-label">From:</span>
-                  <span className="campaign-inbox-header-value">{fromName} &lt;{fromEmail}&gt;</span>
+                  <span className="campaign-inbox-header-value">
+                    {fromName} &lt;{fromEmail}&gt;
+                  </span>
                 </div>
                 {previewText && (
                   <div className="campaign-inbox-header-row">
                     <span className="campaign-inbox-header-label">Preview:</span>
-                    <span className="campaign-inbox-header-preheader">{renderPersonalizedText(previewText)}</span>
+                    <span className="campaign-inbox-header-preheader">
+                      {renderPersonalizedText(previewText)}
+                    </span>
                   </div>
                 )}
               </div>

@@ -6,7 +6,9 @@ import {
   Lock,
   RefreshCw,
   ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
+import { Button } from '../../../components/ui/button';
 
 export default function AuthStatusCard({
   type, // 'otp_sent' | 'login_success' | 'success' | 'incorrect' | 'expired' | 'locked' | 'delivery_failed' | 'server_error' | 'invalid_email'
@@ -24,12 +26,10 @@ export default function AuthStatusCard({
       // 1. Successful OTP Request
       case 'otp_sent':
         return {
-          variant: 'success',
-          badgeType: 'check',
-          badgeBg: '#10b981',
-          bgColor: '#f0fdf4',
-          borderColor: '#bbf7d0',
-          titleColor: '#15803d',
+          containerClass: 'bg-emerald-50/70 border-emerald-200 text-emerald-900',
+          badgeClass: 'bg-emerald-500 text-white',
+          titleColor: 'text-emerald-900',
+          badgeIcon: <Check className="h-3.5 w-3.5" strokeWidth={3} />,
           defaultTitle: 'Verification code sent',
           defaultMessage: destinationEmail
             ? `We've sent a six-digit verification code to ${destinationEmail}.`
@@ -42,12 +42,10 @@ export default function AuthStatusCard({
       case 'login_success':
       case 'success':
         return {
-          variant: 'success',
-          badgeType: 'check',
-          badgeBg: '#10b981',
-          bgColor: '#f0fdf4',
-          borderColor: '#bbf7d0',
-          titleColor: '#15803d',
+          containerClass: 'bg-emerald-50/70 border-emerald-200 text-emerald-900',
+          badgeClass: 'bg-emerald-500 text-white',
+          titleColor: 'text-emerald-900',
+          badgeIcon: <Check className="h-3.5 w-3.5" strokeWidth={3} />,
           defaultTitle: 'Login successful',
           defaultMessage: 'Your email has been verified. Welcome to your Sitech Series workspace.',
           ariaRole: 'status',
@@ -57,12 +55,10 @@ export default function AuthStatusCard({
       // 3. Incorrect 6-digit OTP
       case 'incorrect':
         return {
-          variant: 'error',
-          badgeType: 'x',
-          badgeBg: '#ef4444',
-          bgColor: '#fef2f2',
-          borderColor: '#fecaca',
-          titleColor: '#b91c1c',
+          containerClass: 'bg-red-50/70 border-red-200 text-red-900',
+          badgeClass: 'bg-red-500 text-white',
+          titleColor: 'text-red-900',
+          badgeIcon: <X className="h-3.5 w-3.5" strokeWidth={3} />,
           defaultTitle: 'Verification failed',
           defaultMessage: 'The verification code is incorrect. Please check it and try again.',
           ariaRole: 'alert',
@@ -72,12 +68,10 @@ export default function AuthStatusCard({
       // 4. Expired OTP
       case 'expired':
         return {
-          variant: 'warning',
-          badgeType: 'clock',
-          badgeBg: '#f59e0b',
-          bgColor: '#fffbeb',
-          borderColor: '#fde68a',
-          titleColor: '#b45309',
+          containerClass: 'bg-amber-50/70 border-amber-200 text-amber-900',
+          badgeClass: 'bg-amber-500 text-white',
+          titleColor: 'text-amber-900',
+          badgeIcon: <Clock className="h-3.5 w-3.5" strokeWidth={2.5} />,
           defaultTitle: 'Verification code expired',
           defaultMessage: 'The verification code has expired. Please request a new code.',
           ariaRole: 'alert',
@@ -87,12 +81,10 @@ export default function AuthStatusCard({
       // 5. Account Locked after 5 failed attempts
       case 'locked':
         return {
-          variant: 'error',
-          badgeType: 'lock',
-          badgeBg: '#dc2626',
-          bgColor: '#fef2f2',
-          borderColor: '#f87171',
-          titleColor: '#991b1b',
+          containerClass: 'bg-red-50/70 border-red-300 text-red-950',
+          badgeClass: 'bg-red-600 text-white',
+          titleColor: 'text-red-950',
+          badgeIcon: <Lock className="h-3.5 w-3.5" strokeWidth={2.5} />,
           defaultTitle: 'Account locked',
           defaultMessage: 'Maximum verification attempts exceeded. Account is locked for 24 hours.',
           ariaRole: 'alert',
@@ -102,12 +94,10 @@ export default function AuthStatusCard({
       // 6. Delivery Failure
       case 'delivery_failed':
         return {
-          variant: 'error',
-          badgeType: 'x',
-          badgeBg: '#ef4444',
-          bgColor: '#fef2f2',
-          borderColor: '#fecaca',
-          titleColor: '#b91c1c',
+          containerClass: 'bg-red-50/70 border-red-200 text-red-900',
+          badgeClass: 'bg-red-500 text-white',
+          titleColor: 'text-red-900',
+          badgeIcon: <X className="h-3.5 w-3.5" strokeWidth={3} />,
           defaultTitle: 'Email delivery failed',
           defaultMessage: "We couldn't send your verification code. Please check your address and try again later.",
           ariaRole: 'alert',
@@ -117,12 +107,10 @@ export default function AuthStatusCard({
       // 7. Invalid Email Format
       case 'invalid_email':
         return {
-          variant: 'error',
-          badgeType: 'x',
-          badgeBg: '#ef4444',
-          bgColor: '#fef2f2',
-          borderColor: '#fecaca',
-          titleColor: '#b91c1c',
+          containerClass: 'bg-red-50/70 border-red-200 text-red-900',
+          badgeClass: 'bg-red-500 text-white',
+          titleColor: 'text-red-900',
+          badgeIcon: <AlertCircle className="h-3.5 w-3.5" strokeWidth={2.5} />,
           defaultTitle: 'Invalid email',
           defaultMessage: 'Please enter a valid email address.',
           ariaRole: 'alert',
@@ -133,12 +121,10 @@ export default function AuthStatusCard({
       case 'server_error':
       default:
         return {
-          variant: 'error',
-          badgeType: 'x',
-          badgeBg: '#ef4444',
-          bgColor: '#fef2f2',
-          borderColor: '#fecaca',
-          titleColor: '#b91c1c',
+          containerClass: 'bg-red-50/70 border-red-200 text-red-900',
+          badgeClass: 'bg-red-500 text-white',
+          titleColor: 'text-red-900',
+          badgeIcon: <X className="h-3.5 w-3.5" strokeWidth={3} />,
           defaultTitle: 'Connection error',
           defaultMessage: "We couldn't complete your request. Check your connection and try again.",
           ariaRole: 'alert',
@@ -159,107 +145,36 @@ export default function AuthStatusCard({
     return `${minutes} minutes`;
   };
 
-  const renderBadgeIcon = () => {
-    let iconElement = null;
-    if (config.badgeType === 'check') {
-      iconElement = <Check size={14} color="#ffffff" strokeWidth={3} />;
-    } else if (config.badgeType === 'x') {
-      iconElement = <X size={14} color="#ffffff" strokeWidth={3} />;
-    } else if (config.badgeType === 'clock') {
-      iconElement = <Clock size={14} color="#ffffff" strokeWidth={2.5} />;
-    } else if (config.badgeType === 'lock') {
-      iconElement = <Lock size={13} color="#ffffff" strokeWidth={2.5} />;
-    }
-
-    return (
-      <div
-        style={{
-          width: '26px',
-          height: '26px',
-          borderRadius: '50%',
-          backgroundColor: config.badgeBg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          boxShadow: `0 1px 3px ${config.badgeBg}40`,
-        }}
-        aria-hidden="true"
-      >
-        {iconElement}
-      </div>
-    );
-  };
-
   return (
     <div
       role={config.ariaRole}
       aria-live={config.ariaLive}
-      className="auth-status-card"
-      style={{
-        backgroundColor: config.bgColor,
-        border: `1px solid ${config.borderColor}`,
-        borderRadius: '10px',
-        padding: '14px 16px',
-        margin: '14px 0',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
-        transition: 'all 180ms ease',
-      }}
+      className={`rounded-xl border p-3.5 transition-all text-xs flex flex-col gap-2 ${config.containerClass}`}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-        {renderBadgeIcon()}
+      <div className="flex items-start gap-3">
+        <div
+          className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 shadow-xs ${config.badgeClass}`}
+          aria-hidden="true"
+        >
+          {config.badgeIcon}
+        </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h4
-            style={{
-              margin: '0 0 3px 0',
-              fontSize: '13.5px',
-              fontWeight: 700,
-              color: config.titleColor,
-              lineHeight: 1.3,
-            }}
-          >
+        <div className="flex-1 min-w-0 pt-0.5">
+          <h4 className={`text-xs font-bold leading-snug mb-0.5 ${config.titleColor}`}>
             {title || config.defaultTitle}
           </h4>
-          <p
-            style={{
-              margin: 0,
-              fontSize: '12.5px',
-              color: 'var(--text-secondary, #475569)',
-              lineHeight: 1.45,
-            }}
-          >
+          <p className="text-slate-600 leading-relaxed m-0">
             {message || config.defaultMessage}
           </p>
 
           {remainingAttempts !== undefined && remainingAttempts !== null && remainingAttempts > 0 && (
-            <div
-              style={{
-                marginTop: '6px',
-                fontSize: '11.5px',
-                fontWeight: 600,
-                color: '#b91c1c',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
+            <div className="mt-1.5 font-semibold text-red-600 flex items-center gap-1">
               <span>{remainingAttempts} attempt(s) remaining before a 24-hour security lockout.</span>
             </div>
           )}
 
           {type === 'locked' && lockoutRemainingSeconds && (
-            <div
-              style={{
-                marginTop: '6px',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                color: '#991b1b',
-              }}
-            >
+            <div className="mt-1.5 font-bold text-red-700">
               Remaining lockout duration: {formatLockoutTime(lockoutRemainingSeconds)}
             </div>
           )}
@@ -268,31 +183,24 @@ export default function AuthStatusCard({
 
       {/* Action button - only shown if permitted (never for locked account) */}
       {type !== 'locked' && onAction && actionLabel && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2px' }}>
-          <button
+        <div className="flex justify-end mt-1">
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={onAction}
             disabled={isActionLoading}
-            className="btn btn-secondary btn-sm"
-            style={{
-              fontSize: '12px',
-              height: '30px',
-              padding: '0 12px',
-              fontWeight: 600,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
+            className="h-8 px-3 text-xs font-semibold gap-1.5 bg-white border-slate-200"
           >
             {isActionLoading ? (
-              <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+              <RefreshCw className="h-3 w-3 animate-spin" />
             ) : type === 'otp_sent' || type === 'login_success' || type === 'success' ? (
-              <ArrowRight size={13} />
+              <ArrowRight className="h-3 w-3" />
             ) : (
-              <RefreshCw size={13} />
+              <RefreshCw className="h-3 w-3" />
             )}
             <span>{actionLabel}</span>
-          </button>
+          </Button>
         </div>
       )}
     </div>

@@ -40,9 +40,12 @@ a:hover {
    ============================================================================== */
 .app-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
   position: relative;
   background-color: var(--bg-app);
+  overflow: hidden;
 }
 
 /* Fixed Sidebar - Collapsed by default on desktop */
@@ -243,20 +246,21 @@ a:hover {
   display: none !important;
 }
 
-/* Main Content Area */
+/* Main Content Area: Fixed Viewport Container with Stationary Header & Independent Scrolling */
 .main-content {
   flex: 1;
   margin-left: var(--sidebar-collapsed-width);
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   background-color: var(--bg-app);
   max-width: 100%;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
-/* Top Sticky Header */
+/* Permanently Fixed Top Header */
 .header {
   height: var(--header-height);
   background-color: #ffffff;
@@ -266,11 +270,39 @@ a:hover {
   justify-content: space-between;
   gap: 20px;
   padding: 0 32px;
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 40;
   box-shadow: var(--shadow-xs);
   box-sizing: border-box;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+/* Independent Scroll Container for Main Page Content */
+.content-scroll-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-app);
+  -webkit-overflow-scrolling: touch;
+}
+
+.content-scroll-container::-webkit-scrollbar {
+  width: 6px;
+}
+.content-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.content-scroll-container::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 3px;
+}
+.content-scroll-container::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
 }
 
 /* Page Body Container */

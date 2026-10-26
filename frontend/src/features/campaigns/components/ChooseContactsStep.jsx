@@ -63,7 +63,7 @@ export default function ChooseContactsStep({
       {/* 2-Column Responsive Contacts Grid */}
       <div className="campaign-contacts-grid">
         {/* Left Column: Audience Lists Picker Card */}
-        <div className="campaign-card campaign-card-padded campaign-contacts-picker-card">
+        <div className="campaign-card campaign-card-padded">
           <div className="campaign-section-header">
             <h2 className="campaign-section-title">Select Target Audience</h2>
             <p className="campaign-section-subtitle">
@@ -227,7 +227,7 @@ export default function ChooseContactsStep({
             <div>
               <h3 className="campaign-summary-title">Audience Summary</h3>
               <p className="campaign-summary-subtitle">
-                Authoritative recipient counts and deduplication.
+                Authoritative recipient counts and deduplication metrics.
               </p>
             </div>
 
@@ -252,7 +252,7 @@ export default function ChooseContactsStep({
               </div>
               <h4 className="campaign-summary-empty-heading">No audience selected</h4>
               <p className="campaign-summary-empty-desc">
-                Select one or more contact lists on the left to calculate recipient counts, deduplication, and deliverability eligibility.
+                Select one or more contact lists on the left to calculate real-time recipient counts, deduplication, and deliverability eligibility.
               </p>
             </div>
           ) : (
@@ -295,7 +295,7 @@ export default function ChooseContactsStep({
                   <span className="campaign-breakdown-label">Suppressed / Excluded</span>
                   <span className="campaign-breakdown-value">
                     {audienceSummary
-                      ? audienceSummary.suppressed_or_invalid_contacts.toLocaleString()
+                      ? (audienceSummary.suppressed_or_invalid_contacts || 0).toLocaleString()
                       : '0'}
                   </span>
                 </div>

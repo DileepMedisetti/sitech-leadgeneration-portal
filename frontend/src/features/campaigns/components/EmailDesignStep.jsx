@@ -10,8 +10,13 @@ import {
   Info,
   FileCode,
   FileText,
+  Columns,
 } from 'lucide-react';
-import { CURATED_TEMPLATES, PERSONALIZATION_TOKENS, renderPersonalizedText } from '../campaignConstants';
+import {
+  CURATED_TEMPLATES,
+  PERSONALIZATION_TOKENS,
+  renderPersonalizedText,
+} from '../campaignConstants';
 
 export default function EmailDesignStep({
   editorMode = 'template_gallery',
@@ -32,7 +37,7 @@ export default function EmailDesignStep({
   clearFieldError,
 }) {
   const [devicePreview, setDevicePreview] = useState('desktop'); // 'desktop' | 'mobile'
-  const [editorSubTab, setEditorSubTab] = useState('html'); // 'html' | 'plaintext' | 'preview'
+  const [editorSubTab, setEditorSubTab] = useState('split'); // 'split' | 'html' | 'plaintext' | 'preview'
   const [validationWarning, setValidationWarning] = useState(null);
 
   const textareaRef = useRef(null);
@@ -40,7 +45,8 @@ export default function EmailDesignStep({
   // Auto-initialize with first template if htmlContent is empty
   useEffect(() => {
     if (!htmlContent || htmlContent.trim() === '') {
-      const defaultTmpl = CURATED_TEMPLATES.find((t) => t.id === selectedTemplateId) || CURATED_TEMPLATES[0];
+      const defaultTmpl =
+        CURATED_TEMPLATES.find((t) => t.id === selectedTemplateId) || CURATED_TEMPLATES[0];
       if (defaultTmpl) {
         setHtmlContent(defaultTmpl.html_content);
         setPlainText(defaultTmpl.plain_text);
@@ -59,9 +65,13 @@ export default function EmailDesignStep({
   useEffect(() => {
     if (editorMode === 'html_editor') {
       if (/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi.test(htmlContent)) {
-        setValidationWarning('Script tags are blocked by mail servers and spam filters. Please remove <script> tags.');
+        setValidationWarning(
+          'Security Notice: Script tags are blocked by mail servers and spam filters. Please remove <script> elements.'
+        );
       } else if (htmlContent && !htmlContent.includes('{{unsubscribe_url}}')) {
-        setValidationWarning('Notice: Missing {{unsubscribe_url}} token. Recommended for CAN-SPAM and GDPR compliance.');
+        setValidationWarning(
+          'Compliance Notice: Missing {{unsubscribe_url}} token. Recommended for CAN-SPAM and institutional compliance.'
+        );
       } else {
         setValidationWarning(null);
       }
@@ -85,28 +95,28 @@ export default function EmailDesignStep({
 
   const handleInsertTokenToEditor = (token) => {
     const textarea = textareaRef.current;
-    if (editorSubTab === 'html') {
+    if (editorSubTab === 'plaintext') {
       if (!textarea) {
-        setHtmlContent((prev) => (prev ? prev + token : token));
+        setPlainText((prev) => (prev ? `${prev} ${token}` : token));
         return;
       }
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const next = htmlContent.substring(0, start) + token + htmlContent.substring(end);
-      setHtmlContent(next);
+      const start = textarea.selectionStart ?? plainText.length;
+      const end = textarea.selectionEnd ?? plainText.length;
+      const next = plainText.substring(0, start) + token + plainText.substring(end);
+      setPlainText(next);
       setTimeout(() => {
         textarea.focus();
         textarea.setSelectionRange(start + token.length, start + token.length);
       }, 0);
     } else {
       if (!textarea) {
-        setPlainText((prev) => (prev ? prev + token : token));
+        setHtmlContent((prev) => (prev ? `${prev} ${token}` : token));
         return;
       }
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const next = plainText.substring(0, start) + token + plainText.substring(end);
-      setPlainText(next);
+      const start = textarea.selectionStart ?? htmlContent.length;
+      const end = textarea.selectionEnd ?? htmlContent.length;
+      const next = htmlContent.substring(0, start) + token + htmlContent.substring(end);
+      setHtmlContent(next);
       setTimeout(() => {
         textarea.focus();
         textarea.setSelectionRange(start + token.length, start + token.length);
@@ -117,7 +127,9 @@ export default function EmailDesignStep({
 
   // Helper to render sanitized email preview HTML with automatic personalization
   const renderPreviewHtml = () => {
-    const raw = htmlContent || '<p style="color:#94a3b8;text-align:center;padding:40px;">No email content provided.</p>';
+    const raw =
+      htmlContent ||
+      '<p style="color:#94a3b8;text-align:center;padding:40px;">No email content provided.</p>';
     const sanitized = raw.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
     return renderPersonalizedText(sanitized);
   };
@@ -136,7 +148,7 @@ export default function EmailDesignStep({
             }`}
           >
             <div className="campaign-mode-card-icon">
-              <Layout size={20} />
+              <Layout size={22} />
             </div>
             <div className="campaign-mode-card-body">
               <div className="campaign-mode-card-title-row">
@@ -148,7 +160,7 @@ export default function EmailDesignStep({
                 )}
               </div>
               <p className="campaign-mode-card-desc">
-                Choose from pre-built, high-converting academic templates curated for faculty collaboration and symposiums.
+                Select from responsive, high-converting academic templates curated for faculty collaborations, conferences, and call-for-papers.
               </p>
             </div>
           </button>
@@ -162,11 +174,11 @@ export default function EmailDesignStep({
             }`}
           >
             <div className="campaign-mode-card-icon">
-              <Code2 size={20} />
+              <Code2 size={22} />
             </div>
             <div className="campaign-mode-card-body">
               <div className="campaign-mode-card-title-row">
-                <span className="campaign-mode-card-title">HTML Editor</span>
+                <span className="campaign-mode-card-title">Custom HTML Editor</span>
                 {editorMode === 'html_editor' && (
                   <span className="campaign-mode-active-indicator">
                     <Check size={12} strokeWidth={3} /> Active
@@ -174,7 +186,7 @@ export default function EmailDesignStep({
                 )}
               </div>
               <p className="campaign-mode-card-desc">
-                Copy and paste custom HTML code or write inline markup with deliverability tokens and live preview.
+                Write or paste custom HTML email code with instant variable token insertion, plain text fallback, and live side-by-side preview.
               </p>
             </div>
           </button>
@@ -193,11 +205,11 @@ export default function EmailDesignStep({
         /* Template Gallery 2-Column Responsive Workspace */
         <div className="campaign-design-split-grid">
           {/* Left Column: Template Selection Cards */}
-          <div className="campaign-card campaign-card-padded campaign-template-list-card">
+          <div className="campaign-card campaign-card-padded">
             <div className="campaign-section-header">
-              <h3 className="campaign-section-title">Select Template</h3>
+              <h3 className="campaign-section-title">Curated Academic Templates</h3>
               <p className="campaign-section-subtitle">
-                Click any template to load its content into your outreach message.
+                Click any template to load its structured layout and content into your campaign.
               </p>
             </div>
 
@@ -221,17 +233,13 @@ export default function EmailDesignStep({
                     }`}
                   >
                     <div className="campaign-template-row-top">
-                      <span className="campaign-template-category-badge">
-                        {tmpl.category}
-                      </span>
+                      <span className="campaign-template-category-badge">{tmpl.category}</span>
                       {isSelected ? (
                         <span className="campaign-template-selected-badge">
                           <Check size={12} strokeWidth={3} /> Selected
                         </span>
                       ) : (
-                        <span className="campaign-template-select-action">
-                          Select
-                        </span>
+                        <span className="campaign-template-select-action">Select</span>
                       )}
                     </div>
 
@@ -239,9 +247,7 @@ export default function EmailDesignStep({
                     <p className="campaign-template-desc">{tmpl.description}</p>
 
                     <div className="campaign-template-meta-row">
-                      <span className="campaign-template-subject-preview">
-                        <strong>Subject:</strong> {tmpl.subject}
-                      </span>
+                      <strong>Subject:</strong> {tmpl.subject}
                     </div>
                   </div>
                 );
@@ -254,8 +260,14 @@ export default function EmailDesignStep({
             {/* Preview Toolbar */}
             <div className="campaign-preview-toolbar">
               <div className="campaign-preview-toolbar-title">
-                <Eye size={15} />
-                <span>Live Preview</span>
+                {/* Simulated Mac Dots */}
+                <div style={{ display: 'flex', gap: '5px', marginRight: '6px' }}>
+                  <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
+                  <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+                  <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+                </div>
+                <Eye size={15} color="#2563eb" />
+                <span>Live Inbox Preview</span>
               </div>
 
               {/* Desktop / Mobile view toggle */}
@@ -266,10 +278,10 @@ export default function EmailDesignStep({
                   className={`campaign-device-btn ${
                     devicePreview === 'desktop' ? 'device-btn-active' : ''
                   }`}
-                  title="Desktop Preview"
+                  title="Desktop Outlook & Webmail"
                   aria-label="Desktop Preview"
                 >
-                  <Monitor size={14} />
+                  <Monitor size={13} />
                   <span>Desktop</span>
                 </button>
                 <button
@@ -278,10 +290,10 @@ export default function EmailDesignStep({
                   className={`campaign-device-btn ${
                     devicePreview === 'mobile' ? 'device-btn-active' : ''
                   }`}
-                  title="Mobile View"
-                  aria-label="Mobile View"
+                  title="Mobile Mail Client"
+                  aria-label="Mobile Preview"
                 >
-                  <Smartphone size={14} />
+                  <Smartphone size={13} />
                   <span>Mobile</span>
                 </button>
               </div>
@@ -301,10 +313,18 @@ export default function EmailDesignStep({
                   {fromName || 'Sitech Outreach'} &lt;{fromEmail || 'outreach@sitechseries.org'}&gt;
                 </span>
               </div>
+              <div className="campaign-inbox-header-row">
+                <span className="campaign-inbox-header-label">To:</span>
+                <span className="campaign-inbox-header-value">
+                  Dr. Margaret Hamilton &lt;m.hamilton@mit.edu&gt;
+                </span>
+              </div>
               {previewText && (
                 <div className="campaign-inbox-header-row">
-                  <span className="campaign-inbox-header-label">Preview:</span>
-                  <span className="campaign-inbox-header-preheader">{renderPersonalizedText(previewText)}</span>
+                  <span className="campaign-inbox-header-label">Snippet:</span>
+                  <span className="campaign-inbox-header-preheader">
+                    {renderPersonalizedText(previewText)}
+                  </span>
                 </div>
               )}
             </div>
@@ -334,6 +354,17 @@ export default function EmailDesignStep({
             <div className="campaign-code-tabs">
               <button
                 type="button"
+                onClick={() => setEditorSubTab('split')}
+                className={`campaign-code-tab ${
+                  editorSubTab === 'split' ? 'code-tab-active' : ''
+                }`}
+                title="Side-by-side code editor and live preview"
+              >
+                <Columns size={14} />
+                <span>Side-by-Side</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setEditorSubTab('html')}
                 className={`campaign-code-tab ${
                   editorSubTab === 'html' ? 'code-tab-active' : ''
@@ -350,7 +381,7 @@ export default function EmailDesignStep({
                 }`}
               >
                 <FileText size={14} />
-                <span>Plain Text Fallback</span>
+                <span>Plain Text</span>
               </button>
               <button
                 type="button"
@@ -360,7 +391,7 @@ export default function EmailDesignStep({
                 }`}
               >
                 <Eye size={14} />
-                <span>Rendered Preview</span>
+                <span>Full Preview</span>
               </button>
             </div>
 
@@ -386,12 +417,99 @@ export default function EmailDesignStep({
           {/* Validation Notice if applicable */}
           {validationWarning && (
             <div className="campaign-code-notice">
-              <Info size={15} />
+              <Info size={16} />
               <span>{validationWarning}</span>
             </div>
           )}
 
           {/* SubTab Views */}
+          {editorSubTab === 'split' && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                gap: '16px',
+                alignItems: 'start',
+              }}
+            >
+              {/* Left: Code Box */}
+              <div className="campaign-editor-box">
+                <textarea
+                  ref={textareaRef}
+                  className="campaign-code-textarea"
+                  value={htmlContent}
+                  onChange={(e) => {
+                    setHtmlContent(e.target.value);
+                    if (clearFieldError) clearFieldError('content');
+                  }}
+                  placeholder="<!-- Paste or edit your responsive HTML email code here... -->"
+                  spellCheck={false}
+                  style={{ height: '520px' }}
+                />
+                <div className="campaign-editor-footer-info">
+                  <span>{htmlContent.length} characters</span>
+                  <span>Inline CSS table markup recommended for email client compatibility</span>
+                </div>
+              </div>
+
+              {/* Right: Real-time Live Preview */}
+              <div
+                className="campaign-card"
+                style={{
+                  border: '1px solid var(--camp-border)',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <div className="campaign-preview-toolbar">
+                  <div className="campaign-preview-toolbar-title">
+                    <Eye size={14} color="#2563eb" />
+                    <span>Live Preview</span>
+                  </div>
+                  <div className="campaign-device-toggle-group">
+                    <button
+                      type="button"
+                      onClick={() => setDevicePreview('desktop')}
+                      className={`campaign-device-btn ${
+                        devicePreview === 'desktop' ? 'device-btn-active' : ''
+                      }`}
+                    >
+                      <Monitor size={12} /> Desktop
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDevicePreview('mobile')}
+                      className={`campaign-device-btn ${
+                        devicePreview === 'mobile' ? 'device-btn-active' : ''
+                      }`}
+                    >
+                      <Smartphone size={12} /> Mobile
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  className="campaign-preview-body-wrapper"
+                  style={{ height: '520px', padding: '16px' }}
+                >
+                  <div
+                    className={
+                      devicePreview === 'mobile'
+                        ? 'campaign-device-frame-mobile'
+                        : 'campaign-device-frame-desktop'
+                    }
+                  >
+                    <div
+                      className="campaign-email-render-target"
+                      dangerouslySetInnerHTML={{ __html: renderPreviewHtml() }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {editorSubTab === 'html' && (
             <div className="campaign-editor-box">
               <textarea
@@ -424,37 +542,50 @@ export default function EmailDesignStep({
               />
               <div className="campaign-editor-footer-info">
                 <span>{plainText.length} characters</span>
-                <span>Optional plain text fallback ensures maximum accessibility</span>
+                <span>Plain text fallback ensures maximum accessibility across all email readers</span>
               </div>
             </div>
           )}
 
           {editorSubTab === 'preview' && (
-            <div className="campaign-rendered-preview-container">
-              <div className="campaign-preview-toolbar" style={{ borderBottom: '1px solid #e2e8f0', padding: '12px 16px' }}>
+            <div className="campaign-card" style={{ overflow: 'hidden' }}>
+              <div className="campaign-preview-toolbar">
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
-                  Live Rendered HTML Preview
+                  Full Live Rendered Preview
                 </span>
                 <div className="campaign-device-toggle-group">
                   <button
                     type="button"
                     onClick={() => setDevicePreview('desktop')}
-                    className={`campaign-device-btn ${devicePreview === 'desktop' ? 'device-btn-active' : ''}`}
+                    className={`campaign-device-btn ${
+                      devicePreview === 'desktop' ? 'device-btn-active' : ''
+                    }`}
                   >
                     <Monitor size={14} /> Desktop
                   </button>
                   <button
                     type="button"
                     onClick={() => setDevicePreview('mobile')}
-                    className={`campaign-device-btn ${devicePreview === 'mobile' ? 'device-btn-active' : ''}`}
+                    className={`campaign-device-btn ${
+                      devicePreview === 'mobile' ? 'device-btn-active' : ''
+                    }`}
                   >
                     <Smartphone size={14} /> Mobile
                   </button>
                 </div>
               </div>
 
-              <div className="campaign-preview-body-wrapper" style={{ minHeight: '440px', padding: '24px' }}>
-                <div className={devicePreview === 'mobile' ? 'campaign-device-frame-mobile' : 'campaign-device-frame-desktop'}>
+              <div
+                className="campaign-preview-body-wrapper"
+                style={{ minHeight: '480px', padding: '24px' }}
+              >
+                <div
+                  className={
+                    devicePreview === 'mobile'
+                      ? 'campaign-device-frame-mobile'
+                      : 'campaign-device-frame-desktop'
+                  }
+                >
                   <div
                     className="campaign-email-render-target"
                     dangerouslySetInnerHTML={{ __html: renderPreviewHtml() }}
