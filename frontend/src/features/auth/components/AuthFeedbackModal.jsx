@@ -8,6 +8,7 @@ import {
   ArrowRight,
   RefreshCw,
 } from 'lucide-react';
+import { Button } from '../../../components/ui/button';
 
 /**
  * Centered Feedback Popup Modal for Authentication flows
@@ -20,7 +21,7 @@ import {
  */
 export default function AuthFeedbackModal({
   isOpen,
-  type, // 'otp_sent' | 'not_registered' | 'delivery_failed' | 'login_success' | 'incorrect' | 'expired' | 'locked' | 'server_error'
+  type, // 'otp_sent' | 'not_registered' | 'delivery_failed' | 'login_success' | 'incorrect' | 'expired' | 'locked' | 'inactive' | 'server_error' | 'email_in_use' | 'account_restored' | 'confirm_delete'
   title,
   message,
   destinationEmail,
@@ -78,173 +79,161 @@ export default function AuthFeedbackModal({
       // 1. Successful OTP Request
       case 'otp_sent':
         return {
-          badgeBg: '#10B981', // emerald-500
-          badgeIcon: <Check size={28} color="#ffffff" strokeWidth={3} />,
-          badgeRing: 'rgba(16, 185, 129, 0.15)',
+          badgeBg: 'bg-emerald-500 text-white',
+          badgeRing: 'ring-8 ring-emerald-500/15',
+          badgeIcon: <Check className="h-7 w-7" strokeWidth={3} />,
           defaultTitle: 'Verification code sent',
           defaultMessage: destinationEmail
             ? `We've sent a six-digit verification code to ${destinationEmail}.`
             : "We've sent a six-digit verification code to your registered email address.",
           defaultActionLabel: 'Continue',
-          buttonBg: '#4361EE',
-          buttonHoverBg: '#3651D4',
+          buttonVariant: 'default',
         };
 
       // 2. Unregistered Email Address (Priority 1 & 5)
       case 'not_registered':
         return {
-          badgeBg: '#EF4444', // red-500
-          badgeIcon: <X size={28} color="#ffffff" strokeWidth={3} />,
-          badgeRing: 'rgba(239, 68, 68, 0.15)',
+          badgeBg: 'bg-red-500 text-white',
+          badgeRing: 'ring-8 ring-red-500/15',
+          badgeIcon: <X className="h-7 w-7" strokeWidth={3} />,
           defaultTitle: 'Email not registered',
           defaultMessage:
             'This email address is not registered with Sitech Series. Please check your email or contact your administrator.',
           defaultActionLabel: 'Try again',
-          buttonBg: '#4361EE',
-          buttonHoverBg: '#3651D4',
+          buttonVariant: 'default',
         };
 
-      // 2b. Global Email In Use Conflict (Additional Master Requirement)
+      // 2b. Global Email In Use Conflict
       case 'email_in_use':
         return {
-          badgeBg: '#EF4444', // red-500
-          badgeIcon: <X size={28} color="#ffffff" strokeWidth={3} />,
-          badgeRing: 'rgba(239, 68, 68, 0.15)',
+          badgeBg: 'bg-red-500 text-white',
+          badgeRing: 'ring-8 ring-red-500/15',
+          badgeIcon: <X className="h-7 w-7" strokeWidth={3} />,
           defaultTitle: 'Email already in use',
           defaultMessage:
             'This email address is already in use by another account. Please use a different email address.',
           defaultActionLabel: 'Try Another Email',
-          buttonBg: '#4361EE',
-          buttonHoverBg: '#3651D4',
+          buttonVariant: 'default',
         };
 
       // 2c. Account Restored
       case 'account_restored':
         return {
-          badgeBg: '#10B981', // emerald-500
-          badgeIcon: <Check size={28} color="#ffffff" strokeWidth={3} />,
-          badgeRing: 'rgba(16, 185, 129, 0.15)',
+          badgeBg: 'bg-emerald-500 text-white',
+          badgeRing: 'ring-8 ring-emerald-500/15',
+          badgeIcon: <Check className="h-7 w-7" strokeWidth={3} />,
           defaultTitle: 'Account restored',
           defaultMessage:
             'The email account has been restored and is available in your Email Accounts page.',
           defaultActionLabel: 'View Email Accounts',
-          buttonBg: '#10B981',
-          buttonHoverBg: '#059669',
+          buttonVariant: 'default',
         };
 
       // 2d. Permanent Delete Confirmation
       case 'confirm_delete':
         return {
-          badgeBg: '#DC2626', // red-600
-          badgeIcon: <AlertTriangle size={28} color="#ffffff" strokeWidth={2.6} />,
-          badgeRing: 'rgba(220, 38, 38, 0.18)',
+          badgeBg: 'bg-red-600 text-white',
+          badgeRing: 'ring-8 ring-red-600/18',
+          badgeIcon: <AlertTriangle className="h-7 w-7" strokeWidth={2.6} />,
           defaultTitle: 'Permanently delete this email account?',
           defaultMessage:
             'This action cannot be undone. The email account will be permanently removed from your connected accounts.',
           defaultActionLabel: 'Permanently Delete',
-          buttonBg: '#DC2626',
-          buttonHoverBg: '#B91C1C',
+          buttonVariant: 'destructive',
         };
 
       // 3. OTP Delivery Failure
       case 'delivery_failed':
         return {
-          badgeBg: '#EF4444',
-          badgeIcon: <X size={28} color="#ffffff" strokeWidth={3} />,
-          badgeRing: 'rgba(239, 68, 68, 0.15)',
+          badgeBg: 'bg-red-500 text-white',
+          badgeRing: 'ring-8 ring-red-500/15',
+          badgeIcon: <X className="h-7 w-7" strokeWidth={3} />,
           defaultTitle: 'Verification email not sent',
           defaultMessage: "We couldn't send your verification code. Please try again later.",
           defaultActionLabel: 'Try again',
-          buttonBg: '#4361EE',
-          buttonHoverBg: '#3651D4',
+          buttonVariant: 'default',
         };
 
       // 4. Successful Login / Session Established
       case 'login_success':
         return {
-          badgeBg: '#10B981',
-          badgeIcon: <Check size={28} color="#ffffff" strokeWidth={3} />,
-          badgeRing: 'rgba(16, 185, 129, 0.15)',
+          badgeBg: 'bg-emerald-500 text-white',
+          badgeRing: 'ring-8 ring-emerald-500/15',
+          badgeIcon: <Check className="h-7 w-7" strokeWidth={3} />,
           defaultTitle: 'Login successful',
           defaultMessage:
             'Your email has been verified. Welcome to your Sitech Series workspace.',
           defaultActionLabel: 'Enter Workspace',
-          buttonBg: '#10B981',
-          buttonHoverBg: '#059669',
+          buttonVariant: 'default',
         };
 
       // 5. Incorrect 6-digit OTP
       case 'incorrect':
         return {
-          badgeBg: '#EF4444',
-          badgeIcon: <X size={28} color="#ffffff" strokeWidth={3} />,
-          badgeRing: 'rgba(239, 68, 68, 0.15)',
+          badgeBg: 'bg-red-500 text-white',
+          badgeRing: 'ring-8 ring-red-500/15',
+          badgeIcon: <X className="h-7 w-7" strokeWidth={3} />,
           defaultTitle: 'Verification failed',
           defaultMessage:
             remainingAttempts !== undefined && remainingAttempts !== null
               ? `Incorrect verification code. ${remainingAttempts} attempt(s) remaining.`
               : 'The verification code entered does not match. Please verify and try again.',
           defaultActionLabel: 'Try again',
-          buttonBg: '#4361EE',
-          buttonHoverBg: '#3651D4',
+          buttonVariant: 'default',
         };
 
       // 6. Expired OTP
       case 'expired':
         return {
-          badgeBg: '#F59E0B', // amber-500
-          badgeIcon: <Clock size={28} color="#ffffff" strokeWidth={2.8} />,
-          badgeRing: 'rgba(245, 158, 11, 0.15)',
+          badgeBg: 'bg-amber-500 text-white',
+          badgeRing: 'ring-8 ring-amber-500/15',
+          badgeIcon: <Clock className="h-7 w-7" strokeWidth={2.8} />,
           defaultTitle: 'Code expired',
           defaultMessage: 'The verification code has expired. Please request a new code.',
           defaultActionLabel: 'Request New Code',
-          buttonBg: '#4361EE',
-          buttonHoverBg: '#3651D4',
+          buttonVariant: 'default',
         };
 
       // 7. Account Locked (5 failed attempts)
       case 'locked':
         return {
-          badgeBg: '#DC2626', // red-600
-          badgeIcon: <Lock size={26} color="#ffffff" strokeWidth={2.6} />,
-          badgeRing: 'rgba(220, 38, 38, 0.18)',
+          badgeBg: 'bg-red-600 text-white',
+          badgeRing: 'ring-8 ring-red-600/18',
+          badgeIcon: <Lock className="h-6 w-6" strokeWidth={2.6} />,
           defaultTitle: 'Too many attempts',
           defaultMessage:
             lockoutRemainingSeconds
               ? `Maximum verification attempts exceeded. Account is locked for ${formatLockoutDuration(lockoutRemainingSeconds)}.`
               : 'Maximum verification attempts exceeded. Account is locked for 24 hours.',
           defaultActionLabel: 'Close',
-          buttonBg: '#64748B',
-          buttonHoverBg: '#475569',
+          buttonVariant: 'secondary',
         };
 
       // 8. Inactive Account
       case 'inactive':
         return {
-          badgeBg: '#EF4444',
-          badgeIcon: <AlertTriangle size={28} color="#ffffff" strokeWidth={2.6} />,
-          badgeRing: 'rgba(239, 68, 68, 0.15)',
+          badgeBg: 'bg-red-500 text-white',
+          badgeRing: 'ring-8 ring-red-500/15',
+          badgeIcon: <AlertTriangle className="h-7 w-7" strokeWidth={2.6} />,
           defaultTitle: 'Account inactive',
           defaultMessage:
             'This account is inactive. Please contact your workspace administrator.',
           defaultActionLabel: 'Understood',
-          buttonBg: '#4361EE',
-          buttonHoverBg: '#3651D4',
+          buttonVariant: 'default',
         };
 
       // 9. Generic / Server / Network Error
       case 'server_error':
       default:
         return {
-          badgeBg: '#EF4444',
-          badgeIcon: <X size={28} color="#ffffff" strokeWidth={3} />,
-          badgeRing: 'rgba(239, 68, 68, 0.15)',
+          badgeBg: 'bg-red-500 text-white',
+          badgeRing: 'ring-8 ring-red-500/15',
+          badgeIcon: <X className="h-7 w-7" strokeWidth={3} />,
           defaultTitle: 'Unable to complete your request',
           defaultMessage:
             message || "We couldn't connect to the server. Please check your connection and try again.",
           defaultActionLabel: 'Try again',
-          buttonBg: '#4361EE',
-          buttonHoverBg: '#3651D4',
+          buttonVariant: 'default',
         };
     }
   };
@@ -275,63 +264,15 @@ export default function AuthFeedbackModal({
       aria-labelledby="auth-modal-title"
       aria-describedby="auth-modal-desc"
       onClick={handleBackdropClick}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        backgroundColor: 'rgba(16, 24, 43, 0.65)',
-        backdropFilter: 'blur(5px)',
-        WebkitBackdropFilter: 'blur(5px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-        animation: 'authFadeIn 180ms ease-out forwards',
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs auth-modal-backdrop"
     >
-      <style>{`
-        @keyframes authFadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes authPopIn {
-          from { opacity: 0; transform: scale(0.95) translateY(8px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-      `}</style>
-
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: '430px',
-          backgroundColor: '#FFFFFF',
-          borderRadius: '16px',
-          border: '1px solid rgba(226, 232, 240, 0.8)',
-          boxShadow: '0 24px 48px -12px rgba(16, 24, 43, 0.28), 0 8px 16px -4px rgba(16, 24, 43, 0.08)',
-          padding: 'clamp(24px, 4vh, 32px)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          textAlign: 'center',
-          boxSizing: 'border-box',
-          animation: 'authPopIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        }}
+        className="w-full max-w-[420px] bg-white rounded-2xl border border-slate-200/90 shadow-2xl shadow-slate-950/20 p-7 sm:p-8 flex flex-col items-center text-center auth-modal-content"
       >
         {/* Top Circular Badge */}
         <div
-          style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            backgroundColor: config.badgeBg,
-            boxShadow: `0 0 0 8px ${config.badgeRing}, 0 6px 14px ${config.badgeBg}33`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '20px',
-            flexShrink: 0,
-          }}
+          className={`w-16 h-16 rounded-full flex items-center justify-center mb-5 shrink-0 ${config.badgeBg} ${config.badgeRing} shadow-sm`}
           aria-hidden="true"
         >
           {config.badgeIcon}
@@ -340,14 +281,7 @@ export default function AuthFeedbackModal({
         {/* Modal Heading */}
         <h3
           id="auth-modal-title"
-          style={{
-            fontSize: '20px',
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
-            color: '#10182B',
-            margin: '0 0 10px 0',
-            lineHeight: 1.3,
-          }}
+          className="text-xl font-bold tracking-tight text-slate-900 mb-2 leading-snug"
         >
           {finalTitle}
         </h3>
@@ -355,152 +289,64 @@ export default function AuthFeedbackModal({
         {/* Modal Message */}
         <p
           id="auth-modal-desc"
-          style={{
-            fontSize: '14px',
-            color: '#667085',
-            lineHeight: 1.55,
-            margin: '0 0 24px 0',
-            maxWidth: '360px',
-            wordBreak: 'break-word',
-          }}
+          className="text-sm text-slate-600 leading-relaxed mb-6 max-w-[340px] break-words"
         >
           {finalMessage}
         </p>
 
         {/* Action Button(s) */}
         {secondaryActionLabel ? (
-          <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-            <button
+          <div className="flex gap-3 w-full">
+            <Button
               type="button"
+              variant="outline"
               onClick={onSecondaryAction || onClose}
               disabled={isLoading}
-              style={{
-                flex: 1,
-                height: '46px',
-                borderRadius: '10px',
-                backgroundColor: '#F1F5F9',
-                color: '#475569',
-                fontSize: '14px',
-                fontWeight: 700,
-                border: '1px solid #CBD5E1',
-                cursor: 'pointer',
-                transition: 'background-color 150ms ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#E2E8F0';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#F1F5F9';
-              }}
+              className="flex-1 h-11 text-sm font-semibold"
             >
               {secondaryActionLabel}
-            </button>
-            <button
+            </Button>
+            <Button
               ref={actionButtonRef}
               type="button"
+              variant={config.buttonVariant}
               onClick={handlePrimaryClick}
               disabled={isLoading}
-              style={{
-                flex: 1,
-                height: '46px',
-                borderRadius: '10px',
-                backgroundColor: config.buttonBg,
-                color: '#ffffff',
-                fontSize: '14px',
-                fontWeight: 700,
-                border: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                boxShadow: `0 4px 12px ${config.buttonBg}40`,
-                transition: 'background-color 160ms ease',
-              }}
-              onMouseEnter={(e) => {
-                if (!isLoading) {
-                  e.currentTarget.style.backgroundColor = config.buttonHoverBg;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isLoading) {
-                  e.currentTarget.style.backgroundColor = config.buttonBg;
-                }
-              }}
+              className="flex-1 h-11 text-sm font-semibold"
             >
               {isLoading ? (
                 <>
-                  <RefreshCw size={17} style={{ animation: 'spin 1s linear infinite' }} />
+                  <RefreshCw className="h-4 w-4 animate-spin mr-1.5" />
                   <span>Processing...</span>
                 </>
               ) : (
                 <span>{finalActionLabel}</span>
               )}
-            </button>
+            </Button>
           </div>
         ) : (
-          <button
+          <Button
             ref={actionButtonRef}
             type="button"
+            variant={config.buttonVariant}
             onClick={handlePrimaryClick}
             disabled={isLoading}
-            style={{
-              width: '100%',
-              height: '46px',
-              borderRadius: '10px',
-              backgroundColor: config.buttonBg,
-              color: '#ffffff',
-              fontSize: '14px',
-              fontWeight: 700,
-              letterSpacing: '0.01em',
-              border: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              opacity: isLoading ? 0.75 : 1,
-              boxShadow: `0 4px 12px ${config.buttonBg}40`,
-              transition: 'background-color 160ms ease, transform 120ms ease, box-shadow 160ms ease',
-            }}
-            onMouseEnter={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.backgroundColor = config.buttonHoverBg;
-                e.currentTarget.style.boxShadow = `0 6px 16px ${config.buttonBg}50`;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.backgroundColor = config.buttonBg;
-                e.currentTarget.style.boxShadow = `0 4px 12px ${config.buttonBg}40`;
-                e.currentTarget.style.transform = 'scale(1)';
-              }
-            }}
-            onMouseDown={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.transform = 'scale(0.99)';
-              }
-            }}
-            onMouseUp={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.transform = 'scale(1)';
-              }
-            }}
+            className="w-full h-11 text-sm font-semibold tracking-wide"
           >
             {isLoading ? (
               <>
-                <RefreshCw size={17} style={{ animation: 'spin 1s linear infinite' }} />
+                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                 <span>Processing...</span>
               </>
             ) : (
               <>
                 <span>{finalActionLabel}</span>
                 {type === 'otp_sent' || type === 'login_success' ? (
-                  <ArrowRight size={17} />
+                  <ArrowRight className="h-4 w-4 ml-1.5" />
                 ) : null}
               </>
             )}
-          </button>
+          </Button>
         )}
       </div>
     </div>

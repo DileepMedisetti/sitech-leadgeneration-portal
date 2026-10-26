@@ -223,7 +223,12 @@ function AppShell() {
     setCurrentTab(safeTab);
     setActiveParam(safeParam);
     setMobileSidebarOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const scrollArea = document.querySelector('.content-scroll-container');
+    if (scrollArea) {
+      scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
     const targetPath = getPathFromRoute(safeTab, safeParam);
     if (window.location.pathname !== targetPath) {
@@ -377,7 +382,7 @@ function AppShell() {
         onClose={() => setMobileSidebarOpen(false)}
       />
 
-      {/* Main Content Area */}
+      {/* Main Content Area: Fixed Viewport Container with Stationary Header & Independent Scrolling */}
       <div className="main-content">
         <Header
           title={title}
@@ -387,42 +392,44 @@ function AppShell() {
           onNavigate={navigate}
         />
 
-        <main className="page-body" key={refreshKey}>
-          {currentTab === 'dashboard' && <DashboardPage onNavigate={navigate} />}
-          {currentTab === 'jobs' && <SearchJobsPage onNavigate={navigate} />}
-          {currentTab === 'new-job' && <CreateJobPage onNavigate={navigate} />}
-          {currentTab === 'job-detail' && (
-            <JobDetailPage jobId={activeParam} onNavigate={navigate} />
-          )}
-          {currentTab === 'discovery' && <DiscoveryPage onNavigate={navigate} />}
-          {currentTab === 'extraction' && <ExtractionMonitorPage onNavigate={navigate} />}
-          {currentTab === 'leads' && (
-            <LeadsPage initialLeadId={activeParam} onNavigate={navigate} />
-          )}
-          {currentTab === 'audience' && (
-            <AudiencePage onNavigate={navigate} activeParam={activeParam} />
-          )}
-          {currentTab === 'create-contact-list' && (
-            <CreateListPage onNavigate={navigate} />
-          )}
-          {currentTab === 'campaigns' && <CampaignsPage onNavigate={navigate} />}
-          {currentTab === 'create-campaign' && (
-            <CreateCampaignPage
-              onNavigate={navigate}
-              registerNavBlocker={registerNavBlocker}
-              previousRoute={previousRouteRef.current}
-            />
-          )}
-          {currentTab === 'campaign-detail' && (
-            <CampaignDetailPage campaignId={activeParam} onNavigate={navigate} />
-          )}
-          {currentTab === 'email-accounts' && (
-            <EmailAccountsPage onNavigate={navigate} />
-          )}
-          {currentTab === 'review-queue' && <ReviewQueuePage onNavigate={navigate} />}
-          {currentTab === 'analytics' && <AnalyticsPage onNavigate={navigate} />}
-          {currentTab === 'settings' && <SettingsPage onNavigate={navigate} />}
-        </main>
+        <div className="content-scroll-container">
+          <main className="page-body" key={refreshKey}>
+            {currentTab === 'dashboard' && <DashboardPage onNavigate={navigate} />}
+            {currentTab === 'jobs' && <SearchJobsPage onNavigate={navigate} />}
+            {currentTab === 'new-job' && <CreateJobPage onNavigate={navigate} />}
+            {currentTab === 'job-detail' && (
+              <JobDetailPage jobId={activeParam} onNavigate={navigate} />
+            )}
+            {currentTab === 'discovery' && <DiscoveryPage onNavigate={navigate} />}
+            {currentTab === 'extraction' && <ExtractionMonitorPage onNavigate={navigate} />}
+            {currentTab === 'leads' && (
+              <LeadsPage initialLeadId={activeParam} onNavigate={navigate} />
+            )}
+            {currentTab === 'audience' && (
+              <AudiencePage onNavigate={navigate} activeParam={activeParam} />
+            )}
+            {currentTab === 'create-contact-list' && (
+              <CreateListPage onNavigate={navigate} />
+            )}
+            {currentTab === 'campaigns' && <CampaignsPage onNavigate={navigate} />}
+            {currentTab === 'create-campaign' && (
+              <CreateCampaignPage
+                onNavigate={navigate}
+                registerNavBlocker={registerNavBlocker}
+                previousRoute={previousRouteRef.current}
+              />
+            )}
+            {currentTab === 'campaign-detail' && (
+              <CampaignDetailPage campaignId={activeParam} onNavigate={navigate} />
+            )}
+            {currentTab === 'email-accounts' && (
+              <EmailAccountsPage onNavigate={navigate} />
+            )}
+            {currentTab === 'review-queue' && <ReviewQueuePage onNavigate={navigate} />}
+            {currentTab === 'analytics' && <AnalyticsPage onNavigate={navigate} />}
+            {currentTab === 'settings' && <SettingsPage onNavigate={navigate} />}
+          </main>
+        </div>
       </div>
     </div>
   );

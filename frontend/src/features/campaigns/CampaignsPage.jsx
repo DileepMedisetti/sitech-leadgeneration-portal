@@ -181,9 +181,61 @@ export default function CampaignsPage({ onNavigate }) {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="campaigns-page-responsive" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <style>{`
+        .campaigns-page-responsive { width: 100%; min-width: 0; box-sizing: border-box; }
+        .campaigns-page-responsive *, .campaigns-page-responsive *::before, .campaigns-page-responsive *::after { box-sizing: border-box; }
+        .campaigns-page-header { min-width: 0; }
+        .campaigns-header-actions { min-width: 0; }
+        .campaigns-search-wrapper { flex: 1 1 220px; min-width: 0; }
+        .campaigns-status-header { min-width: 0; }
+        .campaigns-status-tabs { min-width: 0; flex: 1 1 auto; }
+        .campaigns-table-scroll { width: 100%; max-width: 100%; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+        .campaigns-responsive-table { width: 100%; min-width: 760px; }
+        .campaigns-pagination { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+        @media (max-width: 1024px) {
+          .campaigns-page-responsive { gap: 18px !important; }
+          .campaigns-page-header { align-items: flex-start !important; }
+          .campaigns-header-actions { width: 100%; display: flex !important; flex-wrap: wrap !important; }
+          .campaigns-search-wrapper { flex: 1 1 240px; width: auto !important; }
+          .campaigns-status-header { padding: 0 10px !important; }
+          .campaigns-status-tabs { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+          .campaigns-status-tabs::-webkit-scrollbar { display: none; }
+          .campaigns-status-tabs > button { flex: 0 0 auto; padding: 12px 14px !important; }
+        }
+        @media (max-width: 768px) {
+          .campaigns-page-responsive { gap: 16px !important; }
+          .campaigns-page-header { flex-direction: column !important; align-items: stretch !important; gap: 14px !important; }
+          .campaigns-page-header > div:first-child { width: 100%; }
+          .campaigns-page-header h2 { font-size: 22px !important; }
+          .campaigns-header-actions { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; gap: 10px !important; width: 100%; }
+          .campaigns-search-wrapper { grid-column: 1 / -1; width: 100% !important; }
+          .campaigns-header-actions > div:nth-child(2) { justify-self: start; }
+          .campaigns-header-actions > div:nth-child(3) { justify-self: end; }
+          .campaigns-status-header { align-items: stretch !important; padding: 0 8px !important; }
+          .campaigns-status-tabs { width: 100%; }
+          .campaigns-status-tabs > button { padding: 12px 10px !important; gap: 6px !important; font-size: 12px !important; }
+          .campaigns-status-header > div:last-child { width: 100%; padding: 0 0 10px; }
+          .campaigns-status-header > div:last-child > button { width: 100%; justify-content: center; }
+          .campaigns-responsive-table { min-width: 760px; }
+          .campaigns-pagination { padding: 12px !important; }
+        }
+        @media (max-width: 480px) {
+          .campaigns-page-header h2 { font-size: 20px !important; }
+          .campaigns-header-actions { grid-template-columns: minmax(0, 1fr); }
+          .campaigns-header-actions > div:nth-child(2), .campaigns-header-actions > div:nth-child(3) { justify-self: stretch; }
+          .campaigns-header-actions > div:nth-child(2) > button { width: 100%; justify-content: center; }
+          .campaigns-header-actions > div:nth-child(3) { width: 100%; }
+          .campaigns-header-actions > div:nth-child(3) > button:first-child { flex: 1; justify-content: center; }
+          .campaigns-status-header { padding: 0 4px !important; }
+          .campaigns-status-tabs > button { padding: 10px 8px !important; gap: 5px !important; }
+          .campaigns-status-tabs > button svg { width: 14px; height: 14px; }
+          .campaigns-status-tabs > button span { font-size: 10px !important; padding: 2px 6px !important; }
+        }
+      `}</style>
       {/* 1. Header with Title on Left, Search + Filter + Create Split Button on Right */}
       <div
+        className="campaigns-page-header"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -210,9 +262,9 @@ export default function CampaignsPage({ onNavigate }) {
         </div>
 
         {/* Right Header Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="campaigns-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {/* Search campaigns field */}
-          <div style={{ position: 'relative', width: '260px', maxWidth: '100%' }}>
+          <div className="campaigns-search-wrapper" style={{ position: 'relative', width: '260px', maxWidth: '100%' }}>
             <Search
               size={15}
               style={{ position: 'absolute', left: '12px', top: '10px', color: '#94a3b8' }}
@@ -424,6 +476,7 @@ export default function CampaignsPage({ onNavigate }) {
 
       {/* 2. Status Tabs with Blue Underline and Counts */}
       <div
+        className="campaigns-status-header"
         style={{
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
@@ -432,12 +485,24 @@ export default function CampaignsPage({ onNavigate }) {
           backgroundColor: '#ffffff',
           borderRadius: '12px 12px 0 0',
           padding: '0 16px',
-          overflowX: 'auto',
+          // Prevent the status-tab header from creating a vertical scrollbar.
+          overflow: 'hidden',
           flexWrap: 'wrap',
           gap: '8px',
         }}
       >
-        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', maxWidth: '100%' }}>
+        <div
+          className="campaigns-status-tabs"
+          style={{
+            display: 'flex',
+            gap: '8px',
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            maxWidth: '100%',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
+        >
           {statusTabs.map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
@@ -573,8 +638,8 @@ export default function CampaignsPage({ onNavigate }) {
             </button>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+          <div className="campaigns-table-scroll" style={{ overflowX: 'auto' }}>
+            <table className="campaigns-responsive-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                   {/* Checkbox Header */}
@@ -941,7 +1006,7 @@ export default function CampaignsPage({ onNavigate }) {
 
         {/* Pagination Footer */}
         {totalPages > 1 && (
-          <div style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0' }}>
+          <div className="campaigns-pagination" style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0' }}>
             <Pagination
               page={page}
               totalPages={totalPages}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail, CheckCircle2, AlertOctagon, HelpCircle, RefreshCw, Layers } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export default function PlacementTestPanel({
   placementTest,
@@ -10,16 +10,36 @@ export default function PlacementTestPanel({
   const getOutcomeBadge = (outcome) => {
     switch (outcome?.toLowerCase()) {
       case 'inbox':
-        return <span className="badge badge-success">Inbox</span>;
+        return (
+          <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: 700, backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+            Inbox
+          </span>
+        );
       case 'spam':
-        return <span className="badge badge-danger">Spam</span>;
+        return (
+          <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: 700, backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+            Spam
+          </span>
+        );
       case 'other':
-        return <span className="badge badge-warning">Other / Junk</span>;
+        return (
+          <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: 700, backgroundColor: '#fffbeb', color: '#d97706', border: '1px solid #fde68a' }}>
+            Other / Junk
+          </span>
+        );
       case 'failed':
-        return <span className="badge badge-danger">Failed</span>;
+        return (
+          <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: 700, backgroundColor: '#fef2f2', color: '#991b1b', border: '1px solid #f87171' }}>
+            Failed
+          </span>
+        );
       case 'unknown':
       default:
-        return <span className="badge badge-neutral">Unknown</span>;
+        return (
+          <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11.5px', fontWeight: 600, backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>
+            Unknown
+          </span>
+        );
     }
   };
 
@@ -28,122 +48,133 @@ export default function PlacementTestPanel({
   const spamPct = obs > 0 ? Math.round((placementTest?.spam_rate || 0) * 100) : 0;
 
   return (
-    <div className="card" style={{ padding: '24px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+    <div className="campaign-card campaign-card-padded">
+      <div className="campaign-intel-header-top">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#0f172a' }}>
               Actual Inbox Placement Testing
             </h3>
             {placementTest && (
-              <span className="badge badge-neutral">
-                Sample: {placementTest.total_tests} Mailboxes
+              <span
+                style={{
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  backgroundColor: '#eff6ff',
+                  color: '#1d4ed8',
+                  border: '1px solid #bfdbfe',
+                }}
+              >
+                Sample: {placementTest.total_tests || obs} Mailboxes
               </span>
             )}
           </div>
-          <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>
-            Empirical mailbox placement verification across Gmail, Outlook, Yahoo, Apple Mail, and Corporate seed accounts.
+          <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#64748b', lineHeight: 1.5 }}>
+            Empirical mailbox placement verification across Gmail, Outlook, Yahoo, Apple Mail, and institutional academic seed accounts.
           </p>
         </div>
 
         <button
           type="button"
-          className="btn btn-secondary"
+          className="campaign-action-btn-secondary"
           onClick={onRunTest}
           disabled={loading || disabled}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >
-          <RefreshCw size={15} className={loading ? 'spinning' : ''} />
-          {loading ? 'Testing Seedboxes...' : placementTest ? 'Re-run Placement Test' : 'Run Controlled Placement Test'}
+          <RefreshCw size={15} style={{ animation: loading ? 'campaignSpin 1s linear infinite' : 'none' }} />
+          <span>
+            {loading
+              ? 'Testing Seedboxes...'
+              : placementTest
+              ? 'Re-run Placement Test'
+              : 'Run Controlled Placement Test'}
+          </span>
         </button>
       </div>
 
       {placementTest ? (
         <div style={{ marginTop: '20px' }}>
-          {/* Aggregate Outcomes */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-              gap: '14px',
-              paddingBottom: '20px',
-              borderBottom: '1px solid var(--border-subtle)',
-            }}
-          >
-            <div style={{ padding: '12px', background: 'var(--bg-subtle)', borderRadius: '6px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Inbox Share</div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+          {/* Aggregate Outcomes Metric Grid */}
+          <div className="campaign-intel-stats-grid">
+            <div className="campaign-intel-stat-box">
+              <span className="campaign-intel-stat-label">Inbox Share</span>
+              <div className="campaign-intel-stat-value" style={{ color: '#059669' }}>
                 {inboxPct}%
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              <span className="campaign-intel-stat-desc">
                 {placementTest.inbox_count} of {obs} observed mailboxes
-              </div>
+              </span>
             </div>
 
-            <div style={{ padding: '12px', background: 'var(--bg-subtle)', borderRadius: '6px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Spam / Junk Share</div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+            <div className="campaign-intel-stat-box">
+              <span className="campaign-intel-stat-label">Spam / Junk Share</span>
+              <div
+                className="campaign-intel-stat-value"
+                style={{ color: spamPct > 0 ? '#dc2626' : '#0f172a' }}
+              >
                 {spamPct}%
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              <span className="campaign-intel-stat-desc">
                 {placementTest.spam_count} of {obs} observed mailboxes
-              </div>
+              </span>
             </div>
 
-            <div style={{ padding: '12px', background: 'var(--bg-subtle)', borderRadius: '6px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Other / Filtered</div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-                {placementTest.other_count}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Quarantined or promotion tabs
-              </div>
+            <div className="campaign-intel-stat-box">
+              <span className="campaign-intel-stat-label">Other / Filtered</span>
+              <div className="campaign-intel-stat-value">{placementTest.other_count || 0}</div>
+              <span className="campaign-intel-stat-desc">Quarantined or promotion tabs</span>
             </div>
 
-            <div style={{ padding: '12px', background: 'var(--bg-subtle)', borderRadius: '6px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Observed Sample</div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-                {obs}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Provider: {placementTest.provider_name}
-              </div>
+            <div className="campaign-intel-stat-box">
+              <span className="campaign-intel-stat-label">Observed Sample</span>
+              <div className="campaign-intel-stat-value">{obs}</div>
+              <span className="campaign-intel-stat-desc">
+                Provider: {placementTest.provider_name || 'Standard Seed Network'}
+              </span>
             </div>
           </div>
 
           {/* Seedbox Observations Table */}
           {placementTest.results && placementTest.results.length > 0 && (
-            <div style={{ marginTop: '20px' }}>
-              <h5 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Seedbox Observations
+            <div style={{ marginTop: '24px' }}>
+              <h5 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                Seedbox Observations Log
               </h5>
-              <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '6px' }}>
+              <div
+                style={{
+                  overflowX: 'auto',
+                  border: '1px solid var(--camp-border)',
+                  borderRadius: '8px',
+                  backgroundColor: '#ffffff',
+                }}
+              >
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
-                      <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-secondary)' }}>Seedbox Mailbox</th>
-                      <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-secondary)' }}>Mailbox Provider</th>
-                      <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-secondary)' }}>Observed Outcome</th>
-                      <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-secondary)' }}>Latency</th>
-                      <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-secondary)' }}>Diagnostic Evidence</th>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--camp-border)' }}>
+                      <th style={{ padding: '10px 14px', fontWeight: 600, color: '#475569' }}>Seedbox Mailbox</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 600, color: '#475569' }}>Mailbox Provider</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 600, color: '#475569' }}>Observed Outcome</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 600, color: '#475569' }}>Latency</th>
+                      <th style={{ padding: '10px 14px', fontWeight: 600, color: '#475569' }}>Diagnostic Evidence</th>
                     </tr>
                   </thead>
                   <tbody>
                     {placementTest.results.map((res, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
+                      <tr key={i} style={{ borderBottom: '1px solid var(--camp-border-subtle)' }}>
+                        <td style={{ padding: '10px 14px', fontFamily: 'var(--font-mono, monospace)', fontSize: '12px', color: '#0f172a' }}>
                           {res.seed_email}
                         </td>
-                        <td style={{ padding: '10px 14px', textTransform: 'capitalize' }}>
-                          {res.mailbox_provider.replace('_', ' ')}
+                        <td style={{ padding: '10px 14px', textTransform: 'capitalize', color: '#334155' }}>
+                          {(res.mailbox_provider || '').replace('_', ' ')}
                         </td>
                         <td style={{ padding: '10px 14px' }}>
                           {getOutcomeBadge(res.outcome)}
                         </td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>
+                        <td style={{ padding: '10px 14px', color: '#64748b' }}>
                           {res.latency_seconds ? `${res.latency_seconds}s` : '—'}
                         </td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
+                        <td style={{ padding: '10px 14px', color: '#475569' }}>
                           {res.detail || 'Standard delivery verification'}
                         </td>
                       </tr>
@@ -154,25 +185,35 @@ export default function PlacementTestPanel({
             </div>
           )}
 
-          {/* Honest Disclaimer */}
+          {/* Placement Disclaimer */}
           <div
             style={{
-              marginTop: '16px',
-              padding: '10px 14px',
-              background: 'var(--bg-subtle)',
-              borderRadius: '6px',
-              fontSize: '12px',
-              color: 'var(--text-muted)',
+              marginTop: '18px',
+              padding: '12px 16px',
+              backgroundColor: '#f8fafc',
+              border: '1px solid var(--camp-border)',
+              borderRadius: '8px',
+              fontSize: '12.5px',
+              color: '#64748b',
               lineHeight: 1.5,
             }}
           >
-            <strong>Note on Placement Testing:</strong> Seedbox measurements reflect controlled test mailboxes with clean history. Real-world placement depends on the recipient domain's individual anti-spam filters, sender IP warming, domain DKIM reputation, and user-level engagement.
+            <strong>Methodology Note:</strong> Seedbox measurements reflect controlled test mailboxes with clean history. Real-world delivery depends on individual university spam filter policies, sender IP reputation, and faculty user engagement.
           </div>
         </div>
       ) : (
-        <div style={{ marginTop: '20px', padding: '24px', textAlign: 'center', background: 'var(--bg-subtle)', borderRadius: '6px' }}>
-          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>
-            No placement test executed for this draft yet. Controlled testing verifies real folder placement before launching.
+        <div
+          style={{
+            marginTop: '20px',
+            padding: '28px 20px',
+            textAlign: 'center',
+            backgroundColor: '#f8fafc',
+            borderRadius: '8px',
+            border: '1px dashed #cbd5e1',
+          }}
+        >
+          <p style={{ margin: 0, color: '#64748b', fontSize: '13.5px' }}>
+            No placement test executed for this campaign yet. Controlled seedbox testing verifies actual folder placement across major email providers.
           </p>
         </div>
       )}

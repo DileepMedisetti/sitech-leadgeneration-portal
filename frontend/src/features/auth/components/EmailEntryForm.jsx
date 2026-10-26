@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { Mail, ArrowRight, RefreshCw } from 'lucide-react';
+import { Mail, ArrowRight, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '../../../components/ui/card';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Button } from '../../../components/ui/button';
 import AuthStatusCard from './AuthStatusCard';
 
 export default function EmailEntryForm({
@@ -12,7 +21,7 @@ export default function EmailEntryForm({
   const [validationError, setValidationError] = useState('');
 
   const validateEmailFormat = (val) => {
-    const trimmed = val.trim();
+    const trimmed = (val || '').trim();
     if (!trimmed) {
       return 'Please enter your email address.';
     }
@@ -35,200 +44,104 @@ export default function EmailEntryForm({
   };
 
   return (
-    <div
-      style={{
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      {/* Heading & Subtitle */}
-      <div style={{ marginBottom: '24px' }}>
-        <h2
-          style={{
-            fontSize: '26px',
-            fontWeight: 800,
-            letterSpacing: '-0.03em',
-            color: '#10182B',
-            margin: '0 0 8px 0',
-            lineHeight: 1.25,
-          }}
-        >
+    <div className="w-full flex flex-col">
+      <CardHeader className="p-0 pb-6 text-left">
+        <CardTitle className="text-2xl font-bold tracking-tight text-slate-900">
           Welcome back
-        </h2>
-        <p
-          style={{
-            fontSize: '13.5px',
-            color: '#667085',
-            margin: 0,
-            lineHeight: 1.55,
-          }}
-        >
+        </CardTitle>
+        <CardDescription className="text-sm text-slate-500 mt-1.5 leading-relaxed">
           Sign in to your Sitech Series workspace with a secure six-digit verification code sent to your email.
-        </p>
-      </div>
+        </CardDescription>
+      </CardHeader>
 
-      {/* Optional fallback inline status card if present */}
-      {statusState && (
-        <AuthStatusCard
-          type={statusState.type}
-          title={statusState.title}
-          message={statusState.message}
-          remainingAttempts={statusState.remainingAttempts}
-          lockoutRemainingSeconds={statusState.lockoutRemainingSeconds}
-          onAction={statusState.onAction}
-          actionLabel={statusState.actionLabel}
-          isActionLoading={statusState.isActionLoading}
-        />
-      )}
-
-      {/* Login Form */}
-      <form onSubmit={handleSubmit} noValidate>
-        <div style={{ marginBottom: '22px' }}>
-          <label
-            htmlFor="auth-email-input"
-            style={{
-              display: 'block',
-              fontSize: '13px',
-              fontWeight: 700,
-              color: '#172033',
-              marginBottom: '8px',
-            }}
-          >
-            Email Address <span style={{ color: '#ef4444' }}>*</span>
-          </label>
-
-          <div style={{ position: 'relative' }}>
-            <div
-              style={{
-                position: 'absolute',
-                left: '14px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#64748b',
-                pointerEvents: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Mail size={17} />
-            </div>
-
-            <input
-              id="auth-email-input"
-              type="email"
-              autoComplete="email"
-              autoFocus
-              placeholder="e.g. name@university.edu"
-              value={email}
-              disabled={isLoading}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (validationError) setValidationError('');
-              }}
-              style={{
-                width: '100%',
-                height: '46px',
-                padding: '0 14px 0 42px',
-                fontSize: '14px',
-                color: '#10182B',
-                backgroundColor: '#ffffff',
-                border: validationError ? '1.5px solid #ef4444' : '1.5px solid #cbd5e1',
-                borderRadius: '10px',
-                outline: 'none',
-                boxSizing: 'border-box',
-                transition: 'border-color 160ms ease, box-shadow 160ms ease',
-                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = validationError ? '#ef4444' : '#4361EE';
-                e.target.style.boxShadow = validationError
-                  ? '0 0 0 3px rgba(239, 68, 68, 0.15)'
-                  : '0 0 0 3px rgba(67, 97, 238, 0.18)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = validationError ? '#ef4444' : '#cbd5e1';
-                e.target.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.04)';
-              }}
+      <CardContent className="p-0">
+        {/* Optional fallback inline status card if present */}
+        {statusState && (
+          <div className="mb-5">
+            <AuthStatusCard
+              type={statusState.type}
+              title={statusState.title}
+              message={statusState.message}
+              remainingAttempts={statusState.remainingAttempts}
+              lockoutRemainingSeconds={statusState.lockoutRemainingSeconds}
+              onAction={statusState.onAction}
+              actionLabel={statusState.actionLabel}
+              isActionLoading={statusState.isActionLoading}
             />
           </div>
+        )}
 
-          {validationError && (
-            <p
-              role="alert"
-              style={{
-                fontSize: '12px',
-                color: '#ef4444',
-                fontWeight: 600,
-                margin: '6px 0 0 0',
-              }}
-            >
-              {validationError}
-            </p>
-          )}
+        <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="auth-email-input" className="mb-0">
+                Email Address <span className="text-red-500 font-bold">*</span>
+              </Label>
+            </div>
+
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                <Mail className="h-4 w-4" aria-hidden="true" />
+              </div>
+
+              <Input
+                id="auth-email-input"
+                type="email"
+                autoComplete="email"
+                autoFocus
+                placeholder="e.g. name@university.edu"
+                value={email}
+                disabled={isLoading}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (validationError) setValidationError('');
+                }}
+                className={`pl-10 h-11 text-sm bg-white transition-all ${
+                  validationError
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+                    : 'border-slate-300 focus:border-blue-600 focus:ring-blue-600/20'
+                }`}
+                aria-invalid={Boolean(validationError)}
+                aria-describedby={validationError ? 'email-error-message' : undefined}
+              />
+            </div>
+
+            {validationError && (
+              <p
+                id="email-error-message"
+                role="alert"
+                className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1 animate-fadeIn"
+              >
+                {validationError}
+              </p>
+            )}
+          </div>
+
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="w-full h-11 text-sm font-semibold tracking-wide bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg shadow-sm transition-all"
+          >
+            {isLoading ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                <span>Sending verification code...</span>
+              </>
+            ) : (
+              <>
+                <span>Send Verification Code</span>
+                <ArrowRight className="h-4 w-4 ml-1.5" />
+              </>
+            )}
+          </Button>
+        </form>
+
+        {/* Security Trust Note */}
+        <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500 select-none">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+          <span>Passwordless enterprise single-session challenge</span>
         </div>
-
-        {/* Primary Action Button */}
-        <button
-          type="submit"
-          disabled={isLoading}
-          style={{
-            width: '100%',
-            height: '46px',
-            fontSize: '14px',
-            fontWeight: 700,
-            letterSpacing: '0.01em',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            opacity: isLoading ? 0.75 : 1,
-            borderRadius: '10px',
-            border: 'none',
-            color: '#ffffff',
-            backgroundColor: '#4361EE',
-            boxShadow: '0 4px 14px rgba(67, 97, 238, 0.3)',
-            transition: 'background-color 160ms ease, transform 120ms ease, box-shadow 160ms ease',
-          }}
-          onMouseEnter={(e) => {
-            if (!isLoading) {
-              e.currentTarget.style.backgroundColor = '#3651D4';
-              e.currentTarget.style.boxShadow = '0 6px 18px rgba(67, 97, 238, 0.4)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isLoading) {
-              e.currentTarget.style.backgroundColor = '#4361EE';
-              e.currentTarget.style.boxShadow = '0 4px 14px rgba(67, 97, 238, 0.3)';
-              e.currentTarget.style.transform = 'scale(1)';
-            }
-          }}
-          onMouseDown={(e) => {
-            if (!isLoading) {
-              e.currentTarget.style.transform = 'scale(0.99)';
-            }
-          }}
-          onMouseUp={(e) => {
-            if (!isLoading) {
-              e.currentTarget.style.transform = 'scale(1)';
-            }
-          }}
-        >
-          {isLoading ? (
-            <>
-              <RefreshCw size={17} style={{ animation: 'spin 1s linear infinite' }} />
-              <span>Sending verification code...</span>
-            </>
-          ) : (
-            <>
-              <span>Send Verification Code</span>
-              <ArrowRight size={17} />
-            </>
-          )}
-        </button>
-      </form>
+      </CardContent>
     </div>
   );
 }

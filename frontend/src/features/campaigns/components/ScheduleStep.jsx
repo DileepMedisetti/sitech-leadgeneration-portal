@@ -6,6 +6,7 @@ import {
   Globe,
   AlertTriangle,
   CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import { COMMON_TIMEZONES } from '../campaignConstants';
 
@@ -44,6 +45,24 @@ export default function ScheduleStep({
     if (clearFieldError) clearFieldError('schedule');
   };
 
+  const handlePresetTomorrow = () => {
+    setSendImmediately(false);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setScheduledAtDate(tomorrow.toISOString().split('T')[0]);
+    setScheduledAtTime('09:00');
+    if (clearFieldError) clearFieldError('schedule');
+  };
+
+  const handlePresetNextMonday = () => {
+    setSendImmediately(false);
+    const d = new Date();
+    d.setDate(d.getDate() + ((1 + 7 - d.getDay()) % 7 || 7));
+    setScheduledAtDate(d.toISOString().split('T')[0]);
+    setScheduledAtTime('09:30');
+    if (clearFieldError) clearFieldError('schedule');
+  };
+
   return (
     <div className="campaign-step-container">
       <div className="campaign-card campaign-card-padded campaign-schedule-card">
@@ -51,7 +70,7 @@ export default function ScheduleStep({
         <div className="campaign-section-header campaign-section-header-centered">
           <h2 className="campaign-section-title">Delivery Schedule</h2>
           <p className="campaign-section-subtitle">
-            Choose whether to dispatch your outreach campaign immediately or schedule it for a verified future delivery window.
+            Choose whether to dispatch your outreach campaign immediately upon preflight approval or schedule it for a verified future delivery window.
           </p>
         </div>
 
@@ -81,7 +100,7 @@ export default function ScheduleStep({
           >
             <div className="campaign-schedule-option-header">
               <div className="campaign-schedule-icon-badge">
-                <Send size={18} />
+                <Send size={20} />
               </div>
               <div className="campaign-schedule-radio-outer">
                 {sendImmediately && <div className="campaign-schedule-radio-inner" />}
@@ -110,7 +129,7 @@ export default function ScheduleStep({
           >
             <div className="campaign-schedule-option-header">
               <div className="campaign-schedule-icon-badge">
-                <Calendar size={18} />
+                <Calendar size={20} />
               </div>
               <div className="campaign-schedule-radio-outer">
                 {!sendImmediately && <div className="campaign-schedule-radio-inner" />}
@@ -126,11 +145,31 @@ export default function ScheduleStep({
         {/* When Scheduling is Selected: Expanded Date/Time Configuration */}
         {!sendImmediately && (
           <div className="campaign-scheduled-config-box">
-            <div className="campaign-scheduled-config-header">
-              <Calendar size={16} className="campaign-scheduled-config-icon" />
-              <span className="campaign-scheduled-config-title">
-                Configure Future Dispatch Window
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div className="campaign-scheduled-config-header">
+                <Calendar size={16} />
+                <span>Configure Future Dispatch Window</span>
+              </div>
+
+              {/* Quick Presets */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={handlePresetTomorrow}
+                  className="campaign-micro-btn campaign-micro-btn-slate"
+                >
+                  <Sparkles size={11} color="#2563eb" />
+                  <span>Tomorrow 9:00 AM</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePresetNextMonday}
+                  className="campaign-micro-btn campaign-micro-btn-slate"
+                >
+                  <Sparkles size={11} color="#2563eb" />
+                  <span>Next Monday 9:30 AM</span>
+                </button>
+              </div>
             </div>
 
             <div className="campaign-scheduled-fields-grid">
@@ -201,7 +240,7 @@ export default function ScheduleStep({
             {/* Scheduled Dispatch Confirmation Helper Note */}
             <div className="campaign-schedule-info-banner">
               <CheckCircle2 size={16} className="campaign-schedule-info-icon" />
-              <div className="campaign-schedule-info-text">
+              <div>
                 Outreach emails will be queued and dispatched automatically on{' '}
                 <strong>{scheduledAtDate || 'selected date'}</strong> at{' '}
                 <strong>{scheduledAtTime || '09:00'}</strong> ({timezoneName}).
