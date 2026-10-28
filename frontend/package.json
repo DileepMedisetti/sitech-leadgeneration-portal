@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/utils/pagination.test.js src/features/campaigns/choose-contacts.test.js src/features/auth/auth-logic.test.js src/features/campaigns/navigation-sanitization.test.js",
+    "test": "node --test src/utils/pagination.test.js src/features/campaigns/choose-contacts.test.js src/features/auth/auth-logic.test.js src/features/campaigns/navigation-sanitization.test.js src/features/email-accounts/email-accounts-sender-sync.test.js src/features/campaigns/templates-and-editor.test.js src/features/campaigns/campaign-redesign.test.js src/features/audience/custom-contact-lists.test.js src/features/campaigns/timezone.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

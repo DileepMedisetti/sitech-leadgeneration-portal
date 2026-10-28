@@ -23,10 +23,8 @@ import { campaignsApi } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Pagination from '../../components/ui/Pagination';
 import ConfirmationModal from '../../components/ui/ConfirmationModal';
-import CustomizeColumnsDrawer, {
-  getSavedColumns,
-  ALL_COLUMNS,
-} from './components/CustomizeColumnsDrawer';
+import CustomizeColumnsDrawer from './components/CustomizeColumnsDrawer';
+import { getSavedColumns, ALL_COLUMNS } from './campaignColumnConstants';
 import './campaigns.css';
 
 export default function CampaignsPage({ onNavigate }) {
@@ -837,7 +835,7 @@ export default function CampaignsPage({ onNavigate }) {
                             {isDraft ? (
                               <button
                                 type="button"
-                                onClick={() => onNavigate('create-campaign')}
+                                onClick={() => onNavigate('create-campaign', c.id)}
                                 style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',

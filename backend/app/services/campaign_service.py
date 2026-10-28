@@ -1,3 +1,4 @@
+from app.models.email_account import EmailAccount
 from datetime import datetime, timezone
 from typing import Any
 from sqlalchemy import func, select
@@ -30,29 +31,54 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def create_new_campaign(db: Session, data: CampaignCreate) -> Campaign:
+def create_new_campaign(
+    db: Session,
+    data: CampaignCreate,
+    owner_user_id: int | None = None,
+) -> Campaign:
     """Create a new campaign with optional initial content and audience lists."""
     name = data.name.strip()
     if not name:
         raise ValueError("Campaign name cannot be empty.")
+
+    account: EmailAccount | None = None
+    if data.email_account_id is not None:
+        account = db.get(EmailAccount, data.email_account_id)
+        if not account or account.archived_at is not None:
+            raise ValueError(f"Email account {data.email_account_id} not found or has been archived.")
+        if owner_user_id is not None and account.owner_user_id != owner_user_id:
+            raise ValueError("Unauthorized: selected email account does not belong to your workspace.")
 
     campaign = repo_create_campaign(
         db=db,
         name=name,
         description=data.description,
         tags=data.tags,
+        email_account_id=data.email_account_id,
+        owner_user_id=owner_user_id,
     )
     db.flush()
 
     if data.content:
+        # Resolve automatic receiver and reply-to defaults from EmailAccount if omitted
+        from_name = data.content.from_name or (account.from_name if account else "Sitech Series")
+        from_email = data.content.from_email or (account.email_address if account else "")
+        reply_to = data.content.reply_to or (
+            (account.reply_to or account.receiver_email or account.email_address) if account else from_email
+        )
+        receiver_name = data.content.receiver_name or (account.receiver_name if account else None)
+        receiver_email = data.content.receiver_email or (account.receiver_email if account else None)
+
         save_campaign_content(
             db=db,
             campaign_id=campaign.id,
             subject=data.content.subject,
             preview_text=data.content.preview_text,
-            from_name=data.content.from_name,
-            from_email=data.content.from_email,
-            reply_to=data.content.reply_to,
+            from_name=from_name,
+            from_email=from_email,
+            reply_to=reply_to,
+            receiver_name=receiver_name,
+            receiver_email=receiver_email,
             html_content=data.content.html_content,
             plain_text=data.content.plain_text,
             editor_mode=data.content.editor_mode,
@@ -68,11 +94,17 @@ def create_new_campaign(db: Session, data: CampaignCreate) -> Campaign:
 
 
 def update_campaign_details(
-    db: Session, campaign_id: int, data: CampaignUpdate
+    db: Session,
+    campaign_id: int,
+    data: CampaignUpdate,
+    owner_user_id: int | None = None,
 ) -> Campaign:
     campaign = get_campaign_by_id(db, campaign_id)
     if not campaign:
         raise ValueError(f"Campaign {campaign_id} not found.")
+
+    if owner_user_id is not None and campaign.owner_user_id is not None and campaign.owner_user_id != owner_user_id:
+        raise PermissionError("Access denied: You do not have permission to manage this campaign.")
 
     if campaign.status in {"sending", "sent", "archived"}:
         raise ValueError(f"Cannot edit campaign in '{campaign.status}' status.")
@@ -89,15 +121,36 @@ def update_campaign_details(
     if data.tags is not None:
         campaign.tags = data.tags
 
+    account: EmailAccount | None = None
+    if data.email_account_id is not None:
+        account = db.get(EmailAccount, data.email_account_id)
+        if not account or account.archived_at is not None:
+            raise ValueError(f"Email account {data.email_account_id} not found or has been archived.")
+        if owner_user_id is not None and account.owner_user_id != owner_user_id:
+            raise ValueError("Unauthorized: selected email account does not belong to your workspace.")
+        campaign.email_account_id = data.email_account_id
+    elif campaign.email_account_id:
+        account = db.get(EmailAccount, campaign.email_account_id)
+
     if data.content is not None:
+        from_name = data.content.from_name or (account.from_name if account else "Sitech Series")
+        from_email = data.content.from_email or (account.email_address if account else "")
+        reply_to = data.content.reply_to or (
+            (account.reply_to or account.receiver_email or account.email_address) if account else from_email
+        )
+        receiver_name = data.content.receiver_name or (account.receiver_name if account else None)
+        receiver_email = data.content.receiver_email or (account.receiver_email if account else None)
+
         save_campaign_content(
             db=db,
             campaign_id=campaign.id,
             subject=data.content.subject,
             preview_text=data.content.preview_text,
-            from_name=data.content.from_name,
-            from_email=data.content.from_email,
-            reply_to=data.content.reply_to,
+            from_name=from_name,
+            from_email=from_email,
+            reply_to=reply_to,
+            receiver_name=receiver_name,
+            receiver_email=receiver_email,
             html_content=data.content.html_content,
             plain_text=data.content.plain_text,
             editor_mode=data.content.editor_mode,
@@ -120,6 +173,7 @@ def list_campaigns(
     search: str | None = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
+    owner_user_id: int | None = None,
 ) -> tuple[list[Campaign], int, int]:
     return get_campaigns_paginated(
         db=db,
@@ -129,15 +183,21 @@ def list_campaigns(
         search=search,
         sort_by=sort_by,
         sort_order=sort_order,
+        owner_user_id=owner_user_id,
     )
 
 
 def get_campaign_audience_summary(
-    db: Session, campaign_id: int
+    db: Session,
+    campaign_id: int,
+    owner_user_id: int | None = None,
 ) -> CampaignAudienceSummaryResponse:
     campaign = get_campaign_by_id(db, campaign_id)
     if not campaign:
         raise ValueError(f"Campaign {campaign_id} not found.")
+
+    if owner_user_id is not None and campaign.owner_user_id is not None and campaign.owner_user_id != owner_user_id:
+        raise PermissionError("Access denied: You do not have permission to access this campaign.")
 
     selected_lists = get_campaign_audience_lists(db, campaign_id)
     list_ids = [l.id for l in selected_lists]
@@ -191,12 +251,18 @@ def get_campaign_audience_summary(
 
 
 def transition_campaign_status(
-    db: Session, campaign_id: int, target_status: str
+    db: Session,
+    campaign_id: int,
+    target_status: str,
+    owner_user_id: int | None = None,
 ) -> Campaign:
     """Safely transitions campaign lifecycle status."""
     campaign = get_campaign_by_id(db, campaign_id)
     if not campaign:
         raise ValueError(f"Campaign {campaign_id} not found.")
+
+    if owner_user_id is not None and campaign.owner_user_id is not None and campaign.owner_user_id != owner_user_id:
+        raise PermissionError("Access denied: You do not have permission to manage this campaign.")
 
     current = campaign.status
     allowed_transitions = {
@@ -222,11 +288,20 @@ def transition_campaign_status(
     return campaign
 
 
-def delete_campaign(db: Session, campaign_id: int) -> bool:
+def delete_campaign(
+    db: Session,
+    campaign_id: int,
+    owner_user_id: int | None = None,
+) -> bool:
     campaign = get_campaign_by_id(db, campaign_id)
     if not campaign:
         return False
+
+    if owner_user_id is not None and campaign.owner_user_id is not None and campaign.owner_user_id != owner_user_id:
+        raise PermissionError("Access denied: You do not have permission to delete this campaign.")
+
     if campaign.status in {"sending"}:
         raise ValueError("Cannot delete a campaign that is actively sending.")
     db.delete(campaign)
     return True
+

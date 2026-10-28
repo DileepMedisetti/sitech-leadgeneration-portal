@@ -96,7 +96,8 @@ def create_new_list(
     db: Session,
     data: ContactListCreate,
 ) -> tuple[dict[str, Any], MembershipBatchSummary | None]:
-    """Create a new contact list, checking for duplicate names and optionally adding initial contacts.
+    """Create a new contact list, checking for duplicate names and optionally adding initial contacts
+    from existing leads or custom contact inputs.
 
     Multi-step creation is performed within the caller's transaction.
     """
@@ -109,6 +110,7 @@ def create_new_list(
         db=db,
         name=cleaned_name,
         description=data.description,
+        list_type=getattr(data, "list_type", "custom") or "custom",
     )
     db.flush()
 
@@ -120,8 +122,210 @@ def create_new_list(
             lead_ids=data.lead_ids,
         )
 
+    # Process custom contacts if provided
+    if getattr(data, "contacts", None):
+        custom_added = 0
+        custom_skipped = 0
+        seen_in_batch = set()
+        for c in data.contacts:
+            norm_email = str(c.email).strip().lower()
+            if not norm_email or norm_email in seen_in_batch:
+                custom_skipped += 1
+                continue
+            seen_in_batch.add(norm_email)
+
+            # Check if Lead already exists to reuse record and preserve lead data
+            lead = db.scalar(select(Lead).where(Lead.email == norm_email))
+            if not lead:
+                lead = Lead(
+                    name=c.name.strip(),
+                    email=norm_email,
+                    profession=c.profession.strip() if c.profession else None,
+                    university=c.university.strip() if c.university else None,
+                    country=c.country.strip() if c.country else None,
+                    qualification_status="qualified",
+                    confidence_score=1.0,
+                )
+                db.add(lead)
+                db.flush()
+            else:
+                # Update missing fields non-destructively
+                if c.profession and not lead.profession:
+                    lead.profession = c.profession.strip()
+                if c.university and not lead.university:
+                    lead.university = c.university.strip()
+                if c.country and not lead.country:
+                    lead.country = c.country.strip()
+                db.flush()
+
+            # Create membership if not already present
+            existing_member = db.scalar(
+                select(ContactListMember).where(
+                    ContactListMember.list_id == new_list.id,
+                    ContactListMember.normalized_email == norm_email,
+                )
+            )
+            if not existing_member:
+                member = ContactListMember(
+                    list_id=new_list.id,
+                    lead_id=lead.id,
+                    normalized_email=norm_email,
+                )
+                db.add(member)
+                custom_added += 1
+            else:
+                custom_skipped += 1
+
+        db.flush()
+        if batch_summary:
+            batch_summary.added += custom_added
+            batch_summary.skipped_duplicates += custom_skipped
+            batch_summary.requested += len(data.contacts)
+        else:
+            batch_summary = MembershipBatchSummary(
+                requested=len(data.contacts),
+                added=custom_added,
+                skipped_duplicates=custom_skipped,
+                rejected_invalid=0,
+            )
+
     list_detail = get_contact_list_by_id(db, new_list.id)
     return list_detail, batch_summary
+
+
+def parse_and_validate_contacts_file(
+    file_bytes: bytes,
+    filename: str,
+) -> dict[str, Any]:
+    """Parses uploaded CSV or XLSX file, auto-detects column mapping variations,
+    validates emails and names, and partitions rows into valid, invalid, and duplicates.
+    """
+    import io
+    import csv
+    import re
+    from pydantic import validate_email
+
+    lower_name = filename.lower()
+    raw_rows: list[dict[str, str]] = []
+
+    if lower_name.endswith(".csv"):
+        # Decode CSV with utf-8 fallback to latin-1
+        try:
+            content = file_bytes.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            content = file_bytes.decode("latin-1")
+
+        f = io.StringIO(content)
+        reader = csv.DictReader(f)
+        for row in reader:
+            raw_rows.append({k.strip(): str(v).strip() if v is not None else "" for k, v in row.items() if k})
+
+    elif lower_name.endswith(".xlsx"):
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+        sheet = wb.active
+        headers = []
+        for col_idx, cell in enumerate(sheet.iter_cols(1, sheet.max_column, 1, 1)):
+            h = str(cell[0].value or "").strip()
+            headers.append(h)
+
+        for row in sheet.iter_rows(min_row=2, max_col=len(headers), values_only=True):
+            if not any(row):
+                continue
+            row_dict = {}
+            for col_idx, h in enumerate(headers):
+                if h:
+                    val = row[col_idx]
+                    row_dict[h] = str(val).strip() if val is not None else ""
+            raw_rows.append(row_dict)
+    else:
+        raise ValueError("Unsupported file format. Please upload a .csv or .xlsx file.")
+
+    # Column synonym mapping
+    NAME_SYNONYMS = {"name", "full_name", "fullname", "contact_name", "person_name", "lead_name"}
+    EMAIL_SYNONYMS = {"email", "email_address", "emailaddress", "mail", "e-mail"}
+    PROF_SYNONYMS = {"profession", "job_title", "title", "designation", "role", "occupation"}
+    UNIV_SYNONYMS = {"university", "institution", "college", "organization", "company", "school"}
+    COUNTRY_SYNONYMS = {"country", "nation", "location"}
+
+    def find_key(row: dict[str, str], synonyms: set[str]) -> str | None:
+        for k in row.keys():
+            normalized_key = re.sub(r"[^a-z0-9]", "_", k.lower()).strip("_")
+            if normalized_key in synonyms:
+                return k
+        return None
+
+    valid_contacts = []
+    invalid_rows = []
+    duplicate_rows = []
+    seen_emails = set()
+
+    for idx, row in enumerate(raw_rows, start=2): # 1-based index matching spreadsheet row
+        name_k = find_key(row, NAME_SYNONYMS)
+        email_k = find_key(row, EMAIL_SYNONYMS)
+        prof_k = find_key(row, PROF_SYNONYMS)
+        univ_k = find_key(row, UNIV_SYNONYMS)
+        country_k = find_key(row, COUNTRY_SYNONYMS)
+
+        name_val = row.get(name_k, "").strip() if name_k else ""
+        email_val = row.get(email_k, "").strip() if email_k else ""
+        prof_val = row.get(prof_k, "").strip() if prof_k else ""
+        univ_val = row.get(univ_k, "").strip() if univ_k else ""
+        country_val = row.get(country_k, "").strip() if country_k else ""
+
+        # Validation checks
+        if not name_val:
+            invalid_rows.append({
+                "row_number": idx,
+                "raw_data": row,
+                "reason": "Name is missing or empty.",
+            })
+            continue
+
+        if not email_val:
+            invalid_rows.append({
+                "row_number": idx,
+                "raw_data": row,
+                "reason": "Email address is missing or empty.",
+            })
+            continue
+
+        norm_email = email_val.lower()
+        if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", norm_email):
+            invalid_rows.append({
+                "row_number": idx,
+                "raw_data": row,
+                "reason": f"Invalid email format: '{email_val}'.",
+            })
+            continue
+
+        if norm_email in seen_emails:
+            duplicate_rows.append({
+                "row_number": idx,
+                "raw_data": row,
+                "reason": f"Duplicate email '{norm_email}' in file.",
+            })
+            continue
+
+        seen_emails.add(norm_email)
+        valid_contacts.append({
+            "name": name_val,
+            "email": norm_email,
+            "profession": prof_val or None,
+            "university": univ_val or None,
+            "country": country_val or None,
+        })
+
+    return {
+        "total_rows": len(raw_rows),
+        "valid_count": len(valid_contacts),
+        "invalid_count": len(invalid_rows),
+        "duplicate_count": len(duplicate_rows),
+        "valid_contacts": valid_contacts,
+        "invalid_rows": invalid_rows,
+        "duplicate_rows": duplicate_rows,
+    }
+
 
 
 def update_existing_list(

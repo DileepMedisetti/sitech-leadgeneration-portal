@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Eye,
   Layers,
+  BarChart2,
 } from 'lucide-react';
 import { campaignsApi, deliverabilityApi } from '../../services/api-client';
 import StatusBadge from '../../components/ui/StatusBadge';
@@ -21,12 +22,14 @@ import ConfirmationModal from '../../components/ui/ConfirmationModal';
 import DeliverabilityPanel from './components/DeliverabilityPanel';
 import PlacementTestPanel from './components/PlacementTestPanel';
 import MLPredictionPanel from './components/MLPredictionPanel';
+import CampaignReportDashboard from './components/CampaignReportDashboard';
 import './campaigns.css';
 
 export default function CampaignDetailPage({ campaignId, onNavigate }) {
   const [campaign, setCampaign] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview'); // overview | deliverability | placement | ml
+  const [activeTab, setActiveTab] = useState('overview'); // report | overview | deliverability | placement | ml
+  const [hasSetInitialTab, setHasSetInitialTab] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
   // Deliverability sub-states
@@ -50,6 +53,12 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
       .get(campaignId)
       .then((res) => {
         setCampaign(res);
+        if (!hasSetInitialTab) {
+          if (res?.status === 'sent' || res?.status === 'completed') {
+            setActiveTab('report');
+          }
+          setHasSetInitialTab(true);
+        }
       })
       .catch((err) => {
         setErrorMessage(err.message || 'Failed to load campaign.');
@@ -312,6 +321,7 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
       {/* 4. Sub-Navigation Tabs */}
       <div className="campaign-detail-tabs-bar">
         {[
+          { id: 'report', label: 'Campaign Report & Analytics', icon: BarChart2 },
           { id: 'overview', label: 'Overview & Email Content', icon: FileText },
           { id: 'deliverability', label: 'Spam Risk Analysis', icon: ShieldCheck },
           { id: 'placement', label: 'Controlled Placement Test', icon: Send },
@@ -332,6 +342,15 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
           );
         })}
       </div>
+
+      {/* TAB 0: CAMPAIGN REPORT & ANALYTICS */}
+      {activeTab === 'report' && (
+        <CampaignReportDashboard
+          campaignId={campaignId}
+          campaignName={campaign.name}
+          onNavigate={onNavigate}
+        />
+      )}
 
       {/* TAB 1: OVERVIEW & CONTENT */}
       {activeTab === 'overview' && (
@@ -380,6 +399,14 @@ export default function CampaignDetailPage({ campaignId, onNavigate }) {
                   <div>
                     <strong style={{ color: 'var(--camp-text-muted)' }}>Reply-To:</strong>{' '}
                     <span>{content.reply_to}</span>
+                  </div>
+                )}
+                {content.receiver_email && (
+                  <div>
+                    <strong style={{ color: 'var(--camp-text-muted)' }}>Default Receiver:</strong>{' '}
+                    <span>
+                      {content.receiver_name ? `${content.receiver_name} <${content.receiver_email}>` : content.receiver_email}
+                    </span>
                   </div>
                 )}
                 {content.content_fingerprint && (

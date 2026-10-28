@@ -134,10 +134,34 @@ def evaluate_auth_rules(
                 )
             )
     except ImportError:
-        # dnspython not installed, record as unknown / not checked
-        pass
-    except Exception:
-        # Network unavailable or offline test environment - do not fabricate
-        pass
+        cfg = RULE_CONFIG["AUTH_TECHNICAL_RECORD_ABSENCE"]
+        findings.append(
+            DeliverabilityFinding(
+                rule_code="AUTH_TECHNICAL_RECORD_ABSENCE",
+                category=cfg["category"],
+                severity=cfg["severity"],
+                title=cfg["title"],
+                explanation=f"{cfg['explanation']} (DNS verification library unavailable in local runtime; verification omitted).",
+                recommendation=cfg["recommendation"],
+                status="unknown",
+                risk_points=0.0,
+                evidence={"status": "unavailable", "domain": from_domain},
+            )
+        )
+    except Exception as exc:
+        cfg = RULE_CONFIG["AUTH_TECHNICAL_RECORD_ABSENCE"]
+        findings.append(
+            DeliverabilityFinding(
+                rule_code="AUTH_TECHNICAL_RECORD_ABSENCE",
+                category=cfg["category"],
+                severity=cfg["severity"],
+                title=cfg["title"],
+                explanation=f"{cfg['explanation']} (DNS query returned unavailable/timeout: {str(exc)}).",
+                recommendation=cfg["recommendation"],
+                status="unknown",
+                risk_points=0.0,
+                evidence={"status": "unavailable", "domain": from_domain},
+            )
+        )
 
     return findings

@@ -9,6 +9,7 @@ import {
   Send,
   CheckSquare,
   BarChart2,
+  LineChart,
   Settings,
   Mail,
   X,
@@ -93,6 +94,7 @@ export default function Sidebar({
         { id: 'leads', label: 'Lead Management', icon: Users },
         { id: 'audience', label: 'Audience', icon: Contact },
         { id: 'campaigns', label: 'Campaigns', icon: Send },
+        { id: 'campaign-tracking', label: 'Campaign Tracking', icon: LineChart },
         { id: 'review-queue', label: 'Review Queue', icon: CheckSquare },
       ],
     },
@@ -230,7 +232,8 @@ export default function Sidebar({
                 const active =
                   currentTab === item.id ||
                   (item.id === 'audience' && currentTab === 'create-contact-list') ||
-                  (item.id === 'campaigns' && (currentTab === 'create-campaign' || currentTab === 'campaign-detail')) ||
+                  (item.id === 'campaigns' && (currentTab === 'create-campaign' || currentTab === 'campaign-detail' || currentTab === 'campaign-templates' || currentTab === 'campaign-template-preview' || currentTab === 'campaign-html-editor')) ||
+                  (item.id === 'campaign-tracking' && (currentTab === 'campaign-tracking-detail' || currentTab === 'campaign-bounced-mails')) ||
                   (item.id === 'jobs' && (currentTab === 'new-job' || currentTab === 'job-detail'));
 
                 return (

@@ -1,16 +1,19 @@
+import asyncio
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.db.database import engine
+from app.db.database import SessionLocal, engine
 from app.routes.analytics import router as analytics_router
 from app.routes.audience import router as audience_router
 from app.routes.auth import router as auth_router
 from app.routes.campaigns import router as campaigns_router
+from app.routes.campaign_tracking import router as campaign_tracking_router
 from app.routes.dashboard import router as dashboard_router
 from app.routes.deliverability import router as deliverability_router
 from app.routes.email_accounts import router as email_accounts_router
+from app.routes.email_templates import router as email_templates_router
 from app.routes.lead_extraction import router as lead_extraction_router
 from app.routes.leads import router as leads_router
 from app.routes.review_queue import router as review_queue_router
@@ -18,6 +21,7 @@ from app.routes.search_collection import router as search_collection_router
 from app.routes.search_jobs import router as search_jobs_router
 from app.routes.settings import router as settings_router
 from app.commands.bootstrap import bootstrap_demo_user
+from app.services.campaign_gate_service import process_due_scheduled_campaigns
 
 app = FastAPI(
     title="Sitech Series — Lead Intelligence Portal",
@@ -26,13 +30,27 @@ app = FastAPI(
 )
 
 
+async def _scheduled_campaign_worker():
+    """Background task that periodically claims and executes due scheduled campaigns."""
+    while True:
+        try:
+            with SessionLocal() as db:
+                process_due_scheduled_campaigns(db, max_campaigns=5)
+        except Exception:
+            pass
+        await asyncio.sleep(30)
+
+
 @app.on_event("startup")
-def on_app_startup():
+async def on_app_startup():
     """Ensure initial demo user and default sender exist on application startup."""
     try:
         bootstrap_demo_user()
     except Exception as exc:
         print(f"Warning: Demo user bootstrap warning: {exc}")
+
+    # Start background scheduler task for campaign executions
+    asyncio.create_task(_scheduled_campaign_worker())
 
 
 # Enable CORS for frontend applications
@@ -55,9 +73,11 @@ app.add_middleware(
 # Register routes
 app.include_router(auth_router)
 app.include_router(email_accounts_router)
+app.include_router(email_templates_router)
 app.include_router(dashboard_router)
 app.include_router(audience_router)
 app.include_router(campaigns_router)
+app.include_router(campaign_tracking_router)
 app.include_router(deliverability_router)
 app.include_router(leads_router)
 app.include_router(search_jobs_router)

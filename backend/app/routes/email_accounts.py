@@ -118,6 +118,9 @@ def verify_connect_email_code_endpoint(
             email=str(payload.email_address),
             from_name=payload.from_name,
             otp_code=payload.otp_code,
+            receiver_name=payload.receiver_name,
+            receiver_email=str(payload.receiver_email) if payload.receiver_email else None,
+            reply_to=str(payload.reply_to) if payload.reply_to else None,
         )
         db.commit()
         db.refresh(account)
@@ -181,6 +184,7 @@ def get_email_account_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
+@router.put("/{account_id}", response_model=EmailAccountResponse)
 @router.patch("/{account_id}", response_model=EmailAccountResponse)
 def update_email_account_endpoint(
     account_id: int,

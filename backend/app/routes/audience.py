@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -156,6 +156,38 @@ def get_lists_endpoint(
         "total_pages": total_pages,
         "items": items,
     }
+
+
+@router.post("/import-contacts/validate")
+async def validate_import_contacts_file_endpoint(
+    file: UploadFile = File(...),
+):
+    """Validate uploaded CSV or XLSX file and extract mapped contacts with error partitioning."""
+    if not file.filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No file uploaded.")
+    lower = file.filename.lower()
+    if not (lower.endswith(".csv") or lower.endswith(".xlsx")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported file format. Please upload a .csv or .xlsx file.",
+        )
+    file_bytes = await file.read()
+    if len(file_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds maximum permitted limit (10MB).",
+        )
+    try:
+        from app.services.audience_service import parse_and_validate_contacts_file
+        result = parse_and_validate_contacts_file(file_bytes, file.filename)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to process file: {str(exc)}",
+        ) from exc
 
 
 @router.post(

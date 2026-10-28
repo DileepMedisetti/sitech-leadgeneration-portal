@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -10,14 +10,8 @@ import {
   RefreshCw,
   AlertTriangle,
   Send,
-  Sparkles,
-  Code2,
 } from 'lucide-react';
-import {
-  PREDEFINED_TAGS,
-  PERSONALIZATION_TOKENS,
-  AI_SUBJECT_SUGGESTIONS,
-} from '../campaignConstants';
+import { PREDEFINED_TAGS } from '../campaignConstants';
 import { campaignsApi } from '../../../services/api-client';
 
 export default function CampaignDetailsStep({
@@ -33,6 +27,12 @@ export default function CampaignDetailsStep({
   setFromEmail,
   replyTo,
   setReplyTo,
+  emailAccountId,
+  setEmailAccountId,
+  receiverName,
+  setReceiverName,
+  receiverEmail,
+  setReceiverEmail,
   selectedTags = [],
   setSelectedTags,
   trackingOptions,
@@ -48,59 +48,49 @@ export default function CampaignDetailsStep({
   const [loadingSenders, setLoadingSenders] = useState(true);
   const [senderLoadError, setSenderLoadError] = useState(null);
 
-  // Subject line assistance popovers
-  const [showTokenMenu, setShowTokenMenu] = useState(false);
-  const [showAiMenu, setShowAiMenu] = useState(false);
-
-  const subjectInputRef = useRef(null);
-  const tokenMenuRef = useRef(null);
-  const aiMenuRef = useRef(null);
-
-  // Close popovers when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (
-        tokenMenuRef.current &&
-        !tokenMenuRef.current.contains(e.target) &&
-        aiMenuRef.current &&
-        !aiMenuRef.current.contains(e.target)
-      ) {
-        setShowTokenMenu(false);
-        setShowAiMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Fetch eligible sender identities from backend
   useEffect(() => {
     let isMounted = true;
+
     const fetchSenders = async () => {
       setLoadingSenders(true);
       setSenderLoadError(null);
       try {
         const senders = await campaignsApi.getSenderIdentities();
-        if (isMounted) {
-          setSenderIdentities(senders);
-          if (senders.length > 0) {
-            const currentValid = senders.some((s) => s.email === fromEmail);
-            if (!currentValid || !fromEmail) {
-              setFromEmail(senders[0].email);
-              if (!fromName || fromName.trim() === '') {
-                setFromName(senders[0].name);
-              }
+        if (!isMounted) return;
+
+        const availableSenders = Array.isArray(senders) ? senders : [];
+        setSenderIdentities(availableSenders);
+
+        if (availableSenders.length > 0) {
+          let matched = null;
+          if (emailAccountId) {
+            matched = availableSenders.find((sender) => String(sender.id) === String(emailAccountId));
+          }
+          if (!matched && fromEmail) {
+            matched = availableSenders.find((sender) => sender.email === fromEmail);
+          }
+          if (!matched) matched = availableSenders[0];
+
+          if (matched) {
+            if (setEmailAccountId) setEmailAccountId(matched.id);
+            setFromEmail(matched.email || '');
+            if (!fromName || !fromName.trim()) setFromName(matched.name || '');
+            if (matched.reply_to && (!replyTo || !replyTo.trim())) {
+              setReplyTo(matched.reply_to);
+              setShowReplyTo(matched.reply_to !== matched.email);
+            }
+            if (matched.receiver_name && (!receiverName || !receiverName.trim()) && setReceiverName) {
+              setReceiverName(matched.receiver_name);
+            }
+            if (matched.receiver_email && (!receiverEmail || !receiverEmail.trim()) && setReceiverEmail) {
+              setReceiverEmail(matched.receiver_email);
             }
           }
         }
-      } catch (err) {
-        if (isMounted) {
-          setSenderLoadError(err.message || 'Failed to load sender accounts.');
-        }
+      } catch (error) {
+        if (isMounted) setSenderLoadError(error?.message || 'Failed to load sender accounts.');
       } finally {
-        if (isMounted) {
-          setLoadingSenders(false);
-        }
+        if (isMounted) setLoadingSenders(false);
       }
     };
 
@@ -108,6 +98,8 @@ export default function CampaignDetailsStep({
     return () => {
       isMounted = false;
     };
+    // Sender defaults are intentionally applied once when the step mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAddTag = () => {
@@ -118,65 +110,57 @@ export default function CampaignDetailsStep({
     }
   };
 
-  const handleAddPredefinedTag = (t) => {
-    if (!selectedTags.includes(t)) {
-      setSelectedTags([...selectedTags, t]);
-    }
+  const handleAddPredefinedTag = (tag) => {
+    if (!selectedTags.includes(tag)) setSelectedTags([...selectedTags, tag]);
   };
 
   const handleRemoveTag = (tagToRemove) => {
-    setSelectedTags(selectedTags.filter((t) => t !== tagToRemove));
+    setSelectedTags(selectedTags.filter((tag) => tag !== tagToRemove));
   };
 
-  const handleSenderIdentityChange = (e) => {
-    const selectedEmail = e.target.value;
+  const handleSenderIdentityChange = (event) => {
+    const selectedEmail = event.target.value;
+    const matched = senderIdentities.find((sender) => sender.email === selectedEmail);
     setFromEmail(selectedEmail);
-    const matched = senderIdentities.find((s) => s.email === selectedEmail);
-    if (matched && (!fromName || fromName.trim() === '')) {
-      setFromName(matched.name);
-    }
-    if (clearFieldError) clearFieldError('fromEmail');
-  };
 
-  const handleInsertToken = (token) => {
-    setShowTokenMenu(false);
-    const input = subjectInputRef.current;
-    if (!input) {
-      setSubject((prev) => (prev ? `${prev} ${token}` : token));
-    } else {
-      const start = input.selectionStart ?? subject.length;
-      const end = input.selectionEnd ?? subject.length;
-      const next = subject.substring(0, start) + token + subject.substring(end);
-      setSubject(next);
-      setTimeout(() => {
-        input.focus();
-        input.setSelectionRange(start + token.length, start + token.length);
-      }, 0);
+    if (matched) {
+      if (setEmailAccountId) setEmailAccountId(matched.id);
+      setFromName(matched.name || '');
+      if (matched.reply_to) {
+        setReplyTo(matched.reply_to);
+        setShowReplyTo(matched.reply_to !== selectedEmail);
+      } else {
+        setReplyTo(selectedEmail);
+        setShowReplyTo(false);
+      }
+      const resolvedReceiver = (matched.receiver_name && matched.receiver_name.trim()) ? matched.receiver_name.trim() : (matched.name ? matched.name.trim() : '');
+      if (setReceiverName) setReceiverName(resolvedReceiver);
+      if (setReceiverEmail) setReceiverEmail(matched.receiver_email || '');
     }
-    if (clearFieldError) clearFieldError('subject');
-  };
 
-  const handleApplyAiSuggestion = (suggestion) => {
-    setSubject(suggestion);
-    setShowAiMenu(false);
-    if (clearFieldError) clearFieldError('subject');
+    if (clearFieldError) {
+      clearFieldError('fromEmail');
+      clearFieldError('fromName');
+      clearFieldError('receiverEmail');
+    }
   };
 
   return (
-    <div className="campaign-step-container">
-      {/* Primary Card Container */}
-      <div className="campaign-card campaign-card-padded">
-        {/* Section 1: Campaign Information */}
-        <div className="campaign-form-section">
+    <div className="campaign-step-container campaign-details-step">
+      <div className="campaign-details-grid">
+        {/* Campaign basics */}
+        <section className="campaign-card campaign-card-padded campaign-details-panel">
           <div className="campaign-section-header">
-            <h2 className="campaign-section-title">Campaign Information</h2>
-            <p className="campaign-section-subtitle">
-              Basic identification and internal categorization for this email campaign.
-            </p>
+            <div className="campaign-details-section-icon" aria-hidden="true">01</div>
+            <div>
+              <h2 className="campaign-section-title">Campaign Information</h2>
+              <p className="campaign-section-subtitle">
+                Set the campaign name and the message recipients will see in their inbox.
+              </p>
+            </div>
           </div>
 
           <div className="campaign-form-stack">
-            {/* 1. Campaign Name */}
             <div className="campaign-field-group">
               <label htmlFor="campaign-name-input" className="campaign-label">
                 Campaign Name <span className="campaign-label-required">*</span>
@@ -187,322 +171,164 @@ export default function CampaignDetailsStep({
                 className={`campaign-input ${fieldErrors.name ? 'campaign-input-error' : ''}`}
                 placeholder="e.g. Academic Research Symposium Outreach"
                 value={campaignName}
-                onChange={(e) => {
-                  setCampaignName(e.target.value);
+                onChange={(event) => {
+                  setCampaignName(event.target.value);
                   if (clearFieldError) clearFieldError('name');
                 }}
+                aria-invalid={Boolean(fieldErrors.name)}
+                aria-describedby={fieldErrors.name ? 'campaign-name-error' : 'campaign-name-help'}
               />
               {fieldErrors.name ? (
-                <span className="campaign-field-error" role="alert">
-                  {fieldErrors.name}
-                </span>
+                <span id="campaign-name-error" className="campaign-field-error" role="alert">{fieldErrors.name}</span>
               ) : (
-                <span className="campaign-helper-text">
-                  Internal campaign label used across analytics dashboards, reporting, and activity logs.
+                <span id="campaign-name-help" className="campaign-helper-text">
+                  Internal name used in reporting, analytics, and activity logs.
                 </span>
               )}
             </div>
 
-            {/* 2. Email Subject Line with Token Insertion & AI suggestions */}
             <div className="campaign-field-group">
               <div className="campaign-field-label-row">
                 <label htmlFor="campaign-subject-input" className="campaign-label">
                   Email Subject Line <span className="campaign-label-required">*</span>
                 </label>
-
-                {/* Subject Helpers Toolbar */}
-                <div className="campaign-subject-actions" ref={tokenMenuRef}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowTokenMenu(!showTokenMenu);
-                      setShowAiMenu(false);
-                    }}
-                    className="campaign-micro-btn campaign-micro-btn-blue"
-                    title="Insert personalization variable token"
-                  >
-                    <Code2 size={13} />
-                    <span>Personalize</span>
-                    <ChevronDown size={11} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAiMenu(!showAiMenu);
-                      setShowTokenMenu(false);
-                    }}
-                    className="campaign-micro-btn campaign-micro-btn-purple"
-                    title="View high-converting subject suggestions"
-                  >
-                    <Sparkles size={13} />
-                    <span>AI Ideas</span>
-                    <ChevronDown size={11} />
-                  </button>
-
-                  {/* Token Dropdown Popover */}
-                  {showTokenMenu && (
-                    <div className="campaign-dropdown-menu">
-                      <div className="campaign-dropdown-header">Dynamic Recipient Variables</div>
-                      {PERSONALIZATION_TOKENS.map((item) => (
-                        <button
-                          key={item.token}
-                          type="button"
-                          onClick={() => handleInsertToken(item.token)}
-                          className="campaign-dropdown-item"
-                        >
-                          <span className="campaign-token-code">{item.token}</span>
-                          <span className="campaign-token-desc">{item.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* AI Ideas Popover */}
-                  {showAiMenu && (
-                    <div className="campaign-ai-popover" ref={aiMenuRef}>
-                      <div className="campaign-ai-header">
-                        <div className="campaign-ai-header-title">
-                          <Sparkles size={14} />
-                          <span>Curated Academic Subject Lines</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowAiMenu(false)}
-                          className="campaign-icon-close-btn"
-                          aria-label="Close suggestions"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-
-                      <div className="campaign-ai-list">
-                        {AI_SUBJECT_SUGGESTIONS.map((suggestion, idx) => (
-                          <div
-                            key={idx}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handleApplyAiSuggestion(suggestion)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleApplyAiSuggestion(suggestion);
-                            }}
-                            className="campaign-ai-item"
-                          >
-                            <span className="campaign-ai-text">{suggestion}</span>
-                            <span style={{ fontSize: '11px', color: '#7c3aed', fontWeight: 600 }}>Apply</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <span className="campaign-char-counter">{subject.length}/60</span>
               </div>
-
               <input
-                ref={subjectInputRef}
                 id="campaign-subject-input"
                 type="text"
+                maxLength={150}
                 className={`campaign-input ${fieldErrors.subject ? 'campaign-input-error' : ''}`}
-                placeholder="e.g. Cross-Institutional Research Initiative — Faculty Collaboration"
+                placeholder="e.g. Faculty collaboration opportunity"
                 value={subject}
-                onChange={(e) => {
-                  setSubject(e.target.value);
+                onChange={(event) => {
+                  setSubject(event.target.value);
                   if (clearFieldError) clearFieldError('subject');
                 }}
+                aria-invalid={Boolean(fieldErrors.subject)}
+                aria-describedby={fieldErrors.subject ? 'campaign-subject-error' : 'campaign-subject-help'}
               />
               {fieldErrors.subject ? (
-                <span className="campaign-field-error" role="alert">
-                  {fieldErrors.subject}
-                </span>
+                <span id="campaign-subject-error" className="campaign-field-error" role="alert">{fieldErrors.subject}</span>
               ) : (
-                <span className="campaign-helper-text">
-                  Dynamic variables (e.g. &#123;&#123;name&#125;&#125;, &#123;&#123;university&#125;&#125;) are automatically replaced with recipient details at dispatch.
+                <span id="campaign-subject-help" className="campaign-helper-text">
+                  Aim for a clear, specific subject line of about 60 characters or fewer.
                 </span>
               )}
             </div>
 
-            {/* 3. Preview Text (Preheader) */}
             <div className="campaign-field-group">
               <div className="campaign-field-label-row">
-                <label htmlFor="campaign-preview-text-input" className="campaign-label">
-                  Preview Text (Preheader)
-                </label>
-                <span className="campaign-char-counter">
-                  {previewText.length}/90 characters
-                </span>
+                <label htmlFor="campaign-preview-text-input" className="campaign-label">Preview Text (Preheader)</label>
+                <span className="campaign-char-counter">{previewText.length}/90</span>
               </div>
               <input
                 id="campaign-preview-text-input"
                 type="text"
                 className="campaign-input"
-                placeholder="Brief summary displayed right after the subject in recipient email clients..."
+                placeholder="A short summary shown beside the subject in the inbox"
                 value={previewText}
-                onChange={(e) => setPreviewText(e.target.value)}
+                onChange={(event) => setPreviewText(event.target.value)}
                 maxLength={120}
               />
-              <span className="campaign-helper-text">
-                Appears in the recipient’s inbox preview snippet right next to the subject line to boost open rates.
-              </span>
+              <span className="campaign-helper-text">Use this space to give recipients a reason to open your email.</span>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="campaign-divider" />
-
-        {/* Section 2: Sender Information */}
-        <div className="campaign-form-section">
+        {/* Sender setup */}
+        <section className="campaign-card campaign-card-padded campaign-details-panel">
           <div className="campaign-section-header">
-            <h2 className="campaign-section-title">Sender Information</h2>
-            <p className="campaign-section-subtitle">
-              Identity details and domain authentication configuration displayed to recipients.
-            </p>
+            <div className="campaign-details-section-icon" aria-hidden="true">02</div>
+            <div>
+              <h2 className="campaign-section-title">Sender Configuration</h2>
+              <p className="campaign-section-subtitle">
+                Choose the sending identity and configure how recipients can reply.
+              </p>
+            </div>
           </div>
 
           <div className="campaign-form-stack">
-            {/* 2-Column Grid for Sender Display Name and From Email */}
-            <div className="campaign-two-col-grid">
-              {/* Sender Display Name */}
-              <div className="campaign-field-group">
-                <label htmlFor="campaign-from-name" className="campaign-label">
-                  Sender Display Name <span className="campaign-label-required">*</span>
-                </label>
-                <input
-                  id="campaign-from-name"
-                  type="text"
-                  className={`campaign-input ${fieldErrors.fromName ? 'campaign-input-error' : ''}`}
-                  placeholder="e.g. Sitech Academic Outreach"
-                  value={fromName}
-                  onChange={(e) => {
-                    setFromName(e.target.value);
-                    if (clearFieldError) clearFieldError('fromName');
-                  }}
-                />
-                {fieldErrors.fromName && (
-                  <span className="campaign-field-error" role="alert">
-                    {fieldErrors.fromName}
-                  </span>
-                )}
-              </div>
-
-              {/* Sender Identity (From Email) */}
-              <div className="campaign-field-group">
-                <div className="campaign-field-label-row">
-                  <label htmlFor="campaign-from-email" className="campaign-label">
-                    Sender Identity (From Email) <span className="campaign-label-required">*</span>
-                  </label>
-                  <span className="campaign-verified-badge">
-                    <ShieldCheck size={12} />
-                    <span>DKIM/SPF Verified</span>
-                  </span>
-                </div>
-
-                {loadingSenders ? (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '10px 14px',
-                      border: '1.5px solid #cbd5e1',
-                      borderRadius: '8px',
-                      color: '#64748b',
-                      fontSize: '13px',
-                      backgroundColor: '#f8fafc',
-                    }}
-                  >
-                    <RefreshCw size={14} style={{ animation: 'campaignSpin 1s linear infinite' }} />
-                    <span>Loading verified sender identities...</span>
-                  </div>
-                ) : senderLoadError ? (
-                  <div
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      backgroundColor: '#fef2f2',
-                      color: '#991b1b',
-                      fontSize: '12.5px',
-                      border: '1px solid #fecaca',
-                    }}
-                  >
-                    {senderLoadError}
-                  </div>
-                ) : senderIdentities.length === 0 ? (
-                  <div
-                    style={{
-                      padding: '14px',
-                      borderRadius: '8px',
-                      backgroundColor: '#fffbeb',
-                      border: '1px solid #fde68a',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        color: '#92400e',
-                        fontSize: '13px',
-                        fontWeight: 700,
-                        marginBottom: '4px',
-                      }}
-                    >
-                      <AlertTriangle size={14} color="#f59e0b" />
-                      <span>No verified sender accounts available</span>
-                    </div>
-                    <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#78350f', lineHeight: 1.45 }}>
-                      You must add and verify at least one email identity before sending campaigns.
-                    </p>
-                    {onNavigate && (
-                      <button
-                        type="button"
-                        onClick={() => onNavigate('email-accounts')}
-                        className="campaign-micro-btn campaign-micro-btn-blue"
-                      >
-                        <Send size={12} />
-                        <span>Manage Email Accounts</span>
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <select
-                    id="campaign-from-email"
-                    className={`campaign-select ${fieldErrors.fromEmail ? 'campaign-input-error' : ''}`}
-                    value={fromEmail}
-                    onChange={handleSenderIdentityChange}
-                  >
-                    {senderIdentities.map((sender) => (
-                      <option key={sender.email} value={sender.email}>
-                        {sender.email} ({sender.name})
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {fieldErrors.fromEmail && (
-                  <span className="campaign-field-error" role="alert">
-                    {fieldErrors.fromEmail}
-                  </span>
-                )}
-              </div>
+            <div className="campaign-field-group">
+              <label htmlFor="campaign-from-name" className="campaign-label">
+                Sender Display Name <span className="campaign-label-required">*</span>
+              </label>
+              <input
+                id="campaign-from-name"
+                type="text"
+                className={`campaign-input ${fieldErrors.fromName ? 'campaign-input-error' : ''}`}
+                placeholder="e.g. Sitech Academic Outreach"
+                value={fromName}
+                onChange={(event) => {
+                  setFromName(event.target.value);
+                  if (clearFieldError) clearFieldError('fromName');
+                }}
+                aria-invalid={Boolean(fieldErrors.fromName)}
+              />
+              {fieldErrors.fromName && <span className="campaign-field-error" role="alert">{fieldErrors.fromName}</span>}
             </div>
 
-            {/* Alternative Reply-To Address */}
             <div className="campaign-field-group">
-              {!showReplyTo ? (
-                <button
-                  type="button"
-                  onClick={() => setShowReplyTo(true)}
-                  className="campaign-inline-action-btn"
+              <div className="campaign-field-label-row">
+                <label htmlFor="campaign-from-email" className="campaign-label">
+                  Sender Email <span className="campaign-label-required">*</span>
+                </label>
+                {fromEmail && !loadingSenders && !senderLoadError && senderIdentities.length > 0 && (
+                  <span className="campaign-verified-badge campaign-sender-identity-badge">
+                    <ShieldCheck size={13} />
+                    <span>Saved sender identity</span>
+                  </span>
+                )}
+              </div>
+
+              {loadingSenders ? (
+                <div className="campaign-sender-status campaign-sender-status-loading" role="status">
+                  <RefreshCw size={15} className="campaign-spin-icon" />
+                  <span>Loading sender identities…</span>
+                </div>
+              ) : senderLoadError ? (
+                <div className="campaign-sender-status campaign-sender-status-error" role="alert">
+                  <AlertTriangle size={15} />
+                  <span>{senderLoadError}</span>
+                </div>
+              ) : senderIdentities.length === 0 ? (
+                <div className="campaign-sender-status campaign-sender-status-empty">
+                  <div className="campaign-sender-status-heading"><AlertTriangle size={16} /><strong>No sender accounts available</strong></div>
+                  <p>Add a sender account before attempting to send a campaign.</p>
+                  {onNavigate && (
+                    <button type="button" onClick={() => onNavigate('email-accounts')} className="campaign-micro-btn campaign-micro-btn-blue">
+                      <Send size={13} /><span>Manage Email Accounts</span>
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <select
+                  id="campaign-from-email"
+                  className={`campaign-select ${fieldErrors.fromEmail ? 'campaign-input-error' : ''}`}
+                  value={fromEmail || ''}
+                  onChange={handleSenderIdentityChange}
+                  aria-invalid={Boolean(fieldErrors.fromEmail)}
                 >
-                  <Plus size={14} />
-                  <span>Configure alternative reply-to address</span>
+                  {senderIdentities.map((sender) => (
+                    <option key={sender.id ?? sender.email} value={sender.email}>
+                      {sender.email}{sender.name ? ` — ${sender.name}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {fieldErrors.fromEmail && <span className="campaign-field-error" role="alert">{fieldErrors.fromEmail}</span>}
+              <span className="campaign-helper-text">The email address recipients will see as the sender. Verification status is managed by your email account settings.</span>
+            </div>
+
+            <div className="campaign-field-group campaign-reply-to-field">
+              {!showReplyTo ? (
+                <button type="button" onClick={() => setShowReplyTo(true)} className="campaign-inline-action-btn">
+                  <Plus size={14} /><span>Configure a different Reply-To address</span>
                 </button>
               ) : (
                 <div className="campaign-nested-box">
                   <div className="campaign-field-label-row">
-                    <label htmlFor="campaign-reply-to" className="campaign-label">
-                      Alternative Reply-to Address
-                    </label>
+                    <label htmlFor="campaign-reply-to" className="campaign-label">Reply-To Address</label>
                     <button
                       type="button"
                       onClick={() => {
@@ -510,119 +336,141 @@ export default function CampaignDetailsStep({
                         setReplyTo(fromEmail);
                       }}
                       className="campaign-text-link-danger"
-                    >
-                      Remove
-                    </button>
+                    >Remove</button>
                   </div>
                   <input
                     id="campaign-reply-to"
                     type="email"
                     className="campaign-input"
                     placeholder="e.g. replies@sitechseries.org"
-                    value={replyTo}
-                    onChange={(e) => setReplyTo(e.target.value)}
+                    value={replyTo || ''}
+                    onChange={(event) => setReplyTo(event.target.value)}
                   />
-                  <span className="campaign-helper-text">
-                    Replies from recipients will be directed to this inbox instead of the sender address.
-                  </span>
+                  <span className="campaign-helper-text">Replies will go to this address instead of the sender address.</span>
                 </div>
               )}
             </div>
 
-            {/* Campaign Categorization Tags */}
-            <div className="campaign-field-group">
-              <label htmlFor="campaign-tags-input" className="campaign-label">
-                Campaign Tags
-              </label>
-
-              {/* Tag Pills */}
-              {selectedTags.length > 0 && (
-                <div className="campaign-tag-pills-row">
-                  {selectedTags.map((tag) => (
-                    <span key={tag} className="campaign-tag-chip">
-                      <Tag size={12} />
-                      <span>{tag}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTag(tag)}
-                        className="campaign-tag-remove-btn"
-                        aria-label={`Remove tag ${tag}`}
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
+            <div className="campaign-details-subsection">
+              <h3 className="campaign-details-subsection-title">Default recipient details <span>Optional</span></h3>
+              <p className="campaign-helper-text campaign-details-subsection-help">
+                Defaults associated with the selected sender account. The actual campaign audience is selected in the Audience step.
+              </p>
+              <div className="campaign-two-col-grid">
+                <div className="campaign-field-group">
+                  <label htmlFor="campaign-receiver-name" className="campaign-label">Default Recipient Name</label>
+                  <input
+                    id="campaign-receiver-name"
+                    type="text"
+                    className="campaign-input"
+                    placeholder="e.g. Dr. Recipient Name"
+                    value={receiverName || ''}
+                    onChange={(event) => setReceiverName && setReceiverName(event.target.value)}
+                  />
                 </div>
-              )}
-
-              {/* Add Custom Tag Bar */}
-              <div className="campaign-tag-input-row">
-                <input
-                  id="campaign-tags-input"
-                  type="text"
-                  className="campaign-input campaign-tag-input"
-                  placeholder="Add custom tag (e.g. Faculty Outreach, Q2 Summit)..."
-                  value={newTagInput}
-                  onChange={(e) => setNewTagInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddTag();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddTag}
-                  className="campaign-action-btn-secondary campaign-tag-add-btn"
-                >
-                  <Plus size={14} />
-                  <span>Add Tag</span>
-                </button>
-              </div>
-
-              {/* Predefined Tag Suggestions */}
-              <div className="campaign-predefined-tags">
-                <span className="campaign-predefined-label">Suggested Tags:</span>
-                <div className="campaign-predefined-chips">
-                  {PREDEFINED_TAGS.map((tag) => {
-                    const isSelected = selectedTags.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        disabled={isSelected}
-                        onClick={() => handleAddPredefinedTag(tag)}
-                        className={`campaign-predefined-chip ${isSelected ? 'chip-selected' : ''}`}
-                      >
-                        {isSelected && <Check size={11} />}
-                        <span>{tag}</span>
-                      </button>
-                    );
-                  })}
+                <div className="campaign-field-group">
+                  <label htmlFor="campaign-receiver-email" className="campaign-label">Default Recipient Email</label>
+                  <input
+                    id="campaign-receiver-email"
+                    type="email"
+                    className={`campaign-input ${fieldErrors.receiverEmail ? 'campaign-input-error' : ''}`}
+                    placeholder="e.g. recipient@university.edu"
+                    value={receiverEmail || ''}
+                    onChange={(event) => {
+                      if (setReceiverEmail) setReceiverEmail(event.target.value);
+                      if (clearFieldError) clearFieldError('receiverEmail');
+                    }}
+                    aria-invalid={Boolean(fieldErrors.receiverEmail)}
+                  />
+                  {fieldErrors.receiverEmail && <span className="campaign-field-error" role="alert">{fieldErrors.receiverEmail}</span>}
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="campaign-divider" />
+        {/* Tags and categorization */}
+        <section className="campaign-card campaign-card-padded campaign-details-panel campaign-details-tags-panel">
+          <div className="campaign-section-header">
+            <div className="campaign-details-section-icon" aria-hidden="true"><Tag size={16} /></div>
+            <div>
+              <h2 className="campaign-section-title">Campaign Tags</h2>
+              <p className="campaign-section-subtitle">Organize campaigns for easier searching and reporting.</p>
+            </div>
+          </div>
 
-        {/* Section 3: Collapsible Engagement & Tracking Options */}
-        <div className="campaign-accordion-section">
+          {selectedTags.length > 0 && (
+            <div className="campaign-tag-pills-row" aria-label="Selected campaign tags">
+              {selectedTags.map((tag) => (
+                <span key={tag} className="campaign-tag-chip">
+                  <Tag size={12} /><span>{tag}</span>
+                  <button type="button" onClick={() => handleRemoveTag(tag)} className="campaign-tag-remove-btn" aria-label={`Remove tag ${tag}`}>
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="campaign-tag-input-row">
+            <input
+              id="campaign-tags-input"
+              type="text"
+              className="campaign-input campaign-tag-input"
+              placeholder="Add a tag, e.g. Faculty Outreach"
+              value={newTagInput}
+              onChange={(event) => setNewTagInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  handleAddTag();
+                }
+              }}
+            />
+            <button type="button" onClick={handleAddTag} className="campaign-action-btn-secondary campaign-tag-add-btn">
+              <Plus size={14} /><span>Add Tag</span>
+            </button>
+          </div>
+
+          <div className="campaign-predefined-tags">
+            <span className="campaign-predefined-label">Suggested tags</span>
+            <div className="campaign-predefined-chips">
+              {PREDEFINED_TAGS.map((tag) => {
+                const isSelected = selectedTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    disabled={isSelected}
+                    onClick={() => handleAddPredefinedTag(tag)}
+                    className={`campaign-predefined-chip ${isSelected ? 'chip-selected' : ''}`}
+                  >
+                    {isSelected && <Check size={11} />}<span>{tag}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* Engagement and tracking */}
+        <section className="campaign-card campaign-card-padded campaign-details-panel campaign-details-tracking-panel">
           <button
             type="button"
-            onClick={() => setShowAdditionalOptions(!showAdditionalOptions)}
+            onClick={() => setShowAdditionalOptions((shown) => !shown)}
             className="campaign-accordion-toggle"
             aria-expanded={showAdditionalOptions}
+            aria-controls="campaign-tracking-options"
           >
             <div className="campaign-accordion-toggle-left">
-              <span className="campaign-accordion-title">
-                Engagement & Tracking Options
+              <span className="campaign-details-section-icon" aria-hidden="true"><ShieldCheck size={16} /></span>
+              <span className="campaign-details-tracking-heading">
+                <span className="campaign-accordion-title">Engagement &amp; Tracking</span>
+                <span className="campaign-section-subtitle">Choose which engagement metrics to collect.</span>
               </span>
               <span className="campaign-accordion-badge">
                 {trackingOptions?.track_opens && trackingOptions?.track_clicks
-                  ? 'Opens & Clicks Active'
+                  ? 'Opens & clicks enabled'
                   : 'Customized'}
               </span>
             </div>
@@ -630,53 +478,36 @@ export default function CampaignDetailsStep({
           </button>
 
           {showAdditionalOptions && (
-            <div className="campaign-accordion-content">
+            <div id="campaign-tracking-options" className="campaign-accordion-content">
               <div className="campaign-tracking-grid">
-                {/* Track Opens */}
                 <label className="campaign-checkbox-card">
                   <input
                     type="checkbox"
                     className="campaign-checkbox"
                     checked={trackingOptions?.track_opens ?? true}
-                    onChange={(e) =>
-                      setTrackingOptions({
-                        ...trackingOptions,
-                        track_opens: e.target.checked,
-                      })
-                    }
+                    onChange={(event) => setTrackingOptions({ ...trackingOptions, track_opens: event.target.checked })}
                   />
                   <div className="campaign-checkbox-text">
                     <span className="campaign-checkbox-label">Track email opens</span>
-                    <span className="campaign-checkbox-desc">
-                      Embeds a high-reputation 1x1 tracking pixel to monitor recipient read rates and engagement over time.
-                    </span>
+                    <span className="campaign-checkbox-desc">Measure opens using an email tracking pixel. Some email clients may block image-based tracking.</span>
                   </div>
                 </label>
-
-                {/* Track Clicks */}
                 <label className="campaign-checkbox-card">
                   <input
                     type="checkbox"
                     className="campaign-checkbox"
                     checked={trackingOptions?.track_clicks ?? true}
-                    onChange={(e) =>
-                      setTrackingOptions({
-                        ...trackingOptions,
-                        track_clicks: e.target.checked,
-                      })
-                    }
+                    onChange={(event) => setTrackingOptions({ ...trackingOptions, track_clicks: event.target.checked })}
                   />
                   <div className="campaign-checkbox-text">
                     <span className="campaign-checkbox-label">Track link clicks</span>
-                    <span className="campaign-checkbox-desc">
-                      Monitors link clicks using transparent TLS redirection without triggering browser security warnings.
-                    </span>
+                    <span className="campaign-checkbox-desc">Measure clicks on links in the campaign to understand recipient engagement.</span>
                   </div>
                 </label>
               </div>
             </div>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );

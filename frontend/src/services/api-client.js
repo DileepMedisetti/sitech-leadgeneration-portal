@@ -419,6 +419,14 @@ export const audienceApi = {
         ...options,
       })
       .then((res) => res.data),
+
+  validateImportFile: (formData, options = {}) =>
+    apiClient
+      .post('/api/audience/import-contacts/validate', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        ...options,
+      })
+      .then((res) => res.data),
 };
 
 // ==============================================================================
@@ -477,7 +485,34 @@ export const campaignsApi = {
 
   getSenderIdentities: (options = {}) =>
     apiClient.get('/api/campaigns/sender-identities', options).then((res) => res.data),
+
+  getReport: (id, options = {}) =>
+    apiClient.get(`/api/campaigns/${id}/report`, options).then((res) => res.data),
+
+  getRecipientsReport: (id, params = {}, options = {}) =>
+    apiClient
+      .get(`/api/campaigns/${id}/report/recipients`, {
+        params: {
+          page: params.page,
+          page_size: params.page_size,
+          search: params.search || undefined,
+          status: params.status || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  exportRecipientsCsvUrl: (id) => `${apiClient.defaults.baseURL || ''}/api/campaigns/${id}/report/export`,
+
+  getReplies: (id, options = {}) =>
+    apiClient.get(`/api/campaigns/${id}/replies`, options).then((res) => res.data),
+
+  submitInboundReply: (campaignId, payload, options = {}) =>
+    apiClient
+      .post(campaignId ? `/api/campaigns/${campaignId}/inbound-reply` : '/api/campaigns/inbound-reply', payload, options)
+      .then((res) => res.data),
 };
+
 
 // ==============================================================================
 // Deliverability Intelligence API
@@ -601,4 +636,134 @@ export const emailAccountsApi = {
 
   verify: (id, options = {}) =>
     apiClient.post(`/api/email-accounts/${id}/verify`, null, options).then((res) => res.data),
+};
+
+
+// ==============================================================================
+// Email Templates API
+// ==============================================================================
+export const templatesApi = {
+  list: (params = {}, options = {}) =>
+    apiClient.get('/api/templates', { params, ...options }).then((res) => res.data),
+
+  get: (id, options = {}) =>
+    apiClient.get(`/api/templates/${id}`, options).then((res) => res.data),
+
+  getRawHtml: (id, options = {}) =>
+    apiClient.get(`/api/templates/${id}/raw`, { responseType: 'text', ...options }).then((res) => res.data),
+
+  create: (data, options = {}) =>
+    apiClient.post('/api/templates', data, options).then((res) => res.data),
+
+  importFile: (formData, options = {}) =>
+    apiClient.post('/api/templates/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      ...options,
+    }).then((res) => res.data),
+
+  update: (id, data, options = {}) =>
+    apiClient.patch(`/api/templates/${id}`, data, options).then((res) => res.data),
+
+  delete: (id, options = {}) =>
+    apiClient.delete(`/api/templates/${id}`, options).then((res) => res.data),
+};
+
+
+
+// ==============================================================================
+// Campaign Tracking API
+// ==============================================================================
+export const campaignTrackingApi = {
+  getCompletedCampaigns: (params = {}, options = {}) =>
+    apiClient
+      .get('/api/campaign-tracking/campaigns', {
+        params: {
+          page: params.page || 1,
+          page_size: params.page_size || 10,
+          search: params.search || undefined,
+          status: params.status || undefined,
+          start_date: params.start_date || undefined,
+          end_date: params.end_date || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  getCampaignSummary: (campaignId, options = {}) =>
+    apiClient
+      .get(`/api/campaign-tracking/campaigns/${campaignId}/summary`, options)
+      .then((res) => res.data),
+
+  getOpenedRecipients: (campaignId, params = {}, options = {}) =>
+    apiClient
+      .get(`/api/campaign-tracking/campaigns/${campaignId}/opened-recipients`, {
+        params: {
+          page: params.page || 1,
+          page_size: params.page_size || 20,
+          search: params.search || undefined,
+          country: params.country || undefined,
+          profession: params.profession || undefined,
+          university: params.university || undefined,
+          sort_by: params.sort_by || undefined,
+          sort_order: params.sort_order || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  exportOpenedRecipientsUrl: (campaignId, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.search) query.append('search', params.search);
+    if (params.country && params.country !== 'all') query.append('country', params.country);
+    if (params.profession && params.profession !== 'all') query.append('profession', params.profession);
+    if (params.university && params.university !== 'all') query.append('university', params.university);
+    const qs = query.toString();
+    const base = apiClient.defaults.baseURL || '';
+    return `${base}/api/campaign-tracking/campaigns/${campaignId}/opened-recipients/export${qs ? `?${qs}` : ''}`;
+  },
+
+  getBouncedMails: (campaignId, params = {}, options = {}) =>
+    apiClient
+      .get(`/api/campaign-tracking/campaigns/${campaignId}/bounces`, {
+        params: {
+          page: params.page || 1,
+          page_size: params.page_size || 20,
+          search: params.search || undefined,
+          bounce_type: params.bounce_type || undefined,
+          country: params.country || undefined,
+          profession: params.profession || undefined,
+          university: params.university || undefined,
+          start_date: params.start_date || undefined,
+          end_date: params.end_date || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
+
+  exportBouncedMailsUrl: (campaignId, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.search) query.append('search', params.search);
+    if (params.bounce_type && params.bounce_type !== 'all') query.append('bounce_type', params.bounce_type);
+    if (params.country && params.country !== 'all') query.append('country', params.country);
+    if (params.profession && params.profession !== 'all') query.append('profession', params.profession);
+    if (params.university && params.university !== 'all') query.append('university', params.university);
+    const qs = query.toString();
+    const base = apiClient.defaults.baseURL || '';
+    return `${base}/api/campaign-tracking/campaigns/${campaignId}/bounces/export${qs ? `?${qs}` : ''}`;
+  },
+
+  deleteBounceRecord: (campaignId, recordId, options = {}) =>
+    apiClient
+      .delete(`/api/campaign-tracking/campaigns/${campaignId}/bounces/${recordId}`, options)
+      .then((res) => res.data),
+
+  deleteAllBounces: (campaignId, params = {}, options = {}) =>
+    apiClient
+      .delete(`/api/campaign-tracking/campaigns/${campaignId}/bounces`, {
+        params: {
+          bounce_type: params.bounce_type || undefined,
+        },
+        ...options,
+      })
+      .then((res) => res.data),
 };

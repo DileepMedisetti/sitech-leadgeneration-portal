@@ -269,6 +269,9 @@ def verify_connect_email_code(
     email: str,
     from_name: str,
     otp_code: str,
+    receiver_name: str | None = None,
+    receiver_email: str | None = None,
+    reply_to: str | None = None,
 ) -> EmailAccount:
     """Verifies ownership OTP and connects the verified email identity to the user's workspace."""
     clean_email = email.strip()
@@ -316,6 +319,9 @@ def verify_connect_email_code(
         email_address=clean_email,
         normalized_email=normalized_email,
         from_name=from_name.strip(),
+        receiver_name=receiver_name.strip() if receiver_name else None,
+        receiver_email=str(receiver_email).strip().lower() if receiver_email else None,
+        reply_to=str(reply_to).strip().lower() if reply_to else None,
         is_primary=False,
         is_active=True,
         verification_status="verified",
@@ -346,6 +352,9 @@ def create_account(db: Session, user_id: int, payload: EmailAccountCreate) -> Em
         email_address=clean_email,
         normalized_email=normalized_email,
         from_name=payload.from_name.strip(),
+        receiver_name=payload.receiver_name.strip() if payload.receiver_name else None,
+        receiver_email=str(payload.receiver_email).strip().lower() if payload.receiver_email else None,
+        reply_to=str(payload.reply_to).strip().lower() if payload.reply_to else None,
         provider=payload.provider.strip(),
         provider_account_ref=payload.provider_account_ref.strip() if payload.provider_account_ref else None,
         is_primary=False,
@@ -371,6 +380,12 @@ def update_account(
 
     if payload.from_name is not None:
         account.from_name = payload.from_name.strip()
+    if payload.receiver_name is not None:
+        account.receiver_name = payload.receiver_name.strip() if payload.receiver_name else None
+    if payload.receiver_email is not None:
+        account.receiver_email = str(payload.receiver_email).strip().lower() if payload.receiver_email else None
+    if payload.reply_to is not None:
+        account.reply_to = str(payload.reply_to).strip().lower() if payload.reply_to else None
     if payload.is_active is not None:
         if not payload.is_active:
             # Enforce safeguard: cannot deactivate if it's the only viable login email

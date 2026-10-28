@@ -55,6 +55,11 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("SMTP_USE_TLS", "SMTP_TLS", "MAIL_TLS"),
     )
 
+    # Cloudinary configuration
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+
     # Developer OTP helper (only active in development when SMTP credentials are not configured)
     ENABLE_DEV_OTP_CONSOLE: bool = True
 

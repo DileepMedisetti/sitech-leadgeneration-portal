@@ -48,10 +48,33 @@ class MembershipBatchSummary(BaseModel):
     invalid_lead_ids: list[int] = []
 
 
+class CustomContactCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    email: EmailStr
+    profession: str | None = None
+    university: str | None = None
+    country: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Contact name cannot be empty.")
+        return value
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.strip().lower()
+
+
 class ContactListCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = None
+    list_type: str = "custom"
     lead_ids: list[int] = []
+    contacts: list[CustomContactCreate] = []
 
     @field_validator("name")
     @classmethod
@@ -60,6 +83,7 @@ class ContactListCreate(BaseModel):
         if not value:
             raise ValueError("List name cannot be empty.")
         return value
+
 
 
 class ContactListUpdate(BaseModel):
@@ -83,6 +107,7 @@ class ContactListResponse(BaseModel):
     id: int
     name: str
     description: str | None = None
+    list_type: str = "custom"
     contact_count: int = 0
     created_at: datetime
     updated_at: datetime

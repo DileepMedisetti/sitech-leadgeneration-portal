@@ -17,6 +17,7 @@ import {
   Check,
   AlertTriangle,
   X,
+  Pencil,
 } from 'lucide-react';
 import { emailAccountsApi } from '../../services/api-client';
 import { useAuth } from '../../context/AuthContext';
@@ -35,7 +36,20 @@ export default function EmailAccountsPage({ onNavigate }) {
   const [connectStep, setConnectStep] = useState('input'); // 'input' | 'otp'
   const [connectEmail, setConnectEmail] = useState('');
   const [connectName, setConnectName] = useState('');
+  const [connectReceiverName, setConnectReceiverName] = useState('');
+  const [connectReceiverEmail, setConnectReceiverEmail] = useState('');
+  const [connectReplyTo, setConnectReplyTo] = useState('');
   const [connectOtpDigits, setConnectOtpDigits] = useState(['', '', '', '', '', '']);
+
+  // Edit Sender Modal State (Requirement 2 & 3)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState(null);
+  const [editFromName, setEditFromName] = useState('');
+  const [editReplyTo, setEditReplyTo] = useState('');
+  const [editReceiverName, setEditReceiverName] = useState('');
+  const [editReceiverEmail, setEditReceiverEmail] = useState('');
+  const [editErrors, setEditErrors] = useState({});
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [connectCooldown, setConnectCooldown] = useState(60);
   const [isRequestingCode, setIsRequestingCode] = useState(false);
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
@@ -93,9 +107,80 @@ export default function EmailAccountsPage({ onNavigate }) {
     setConnectStep('input');
     setConnectEmail('');
     setConnectName(user?.display_name || '');
+    setConnectReceiverName('');
+    setConnectReceiverEmail('');
+    setConnectReplyTo('');
     setConnectOtpDigits(['', '', '', '', '', '']);
     setFormErrors({});
     setIsConnectModalOpen(true);
+  };
+
+  const handleOpenEditModal = (acc) => {
+    setEditingAccount(acc);
+    setEditFromName(acc.from_name || '');
+    setEditReplyTo(acc.reply_to || '');
+    setEditReceiverName(acc.receiver_name || '');
+    setEditReceiverEmail(acc.receiver_email || '');
+    setEditErrors({});
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (e) => {
+    if (e) e.preventDefault();
+    if (!editingAccount) return;
+
+    const errors = {};
+    const trimmedName = editFromName.trim();
+    const trimmedReplyTo = editReplyTo.trim();
+    const trimmedReceiverName = editReceiverName.trim();
+    const trimmedReceiverEmail = editReceiverEmail.trim();
+
+    if (!trimmedName) {
+      errors.from_name = 'Sender name is required.';
+    }
+    if (trimmedReplyTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedReplyTo)) {
+      errors.reply_to = 'Please enter a valid reply-to email address.';
+    }
+    if (trimmedReceiverEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedReceiverEmail)) {
+      errors.receiver_email = 'Please enter a valid receiver email address.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors);
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setEditErrors({});
+    try {
+      const updated = await emailAccountsApi.update(editingAccount.id, {
+        from_name: trimmedName,
+        reply_to: trimmedReplyTo || null,
+        receiver_name: trimmedReceiverName || null,
+        receiver_email: trimmedReceiverEmail || null,
+      });
+
+      setAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+      setIsEditModalOpen(false);
+      setPopupModal({
+        isOpen: true,
+        type: 'login_success',
+        title: 'Sender details updated',
+        message: `Sender details for "${editingAccount.email_address}" have been updated successfully.`,
+        actionLabel: 'Done',
+        onAction: closePopupModal,
+      });
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      setEditErrors({
+        submit:
+          typeof detail === 'string'
+            ? detail
+            : detail?.message || err.message || 'Failed to update sender details.',
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   // 2. Request OTP Code for new email
@@ -112,6 +197,14 @@ export default function EmailAccountsPage({ onNavigate }) {
     }
     if (!trimmedName) {
       errors.name = 'Sender display name is required.';
+    }
+    const trimmedReceiverEmail = connectReceiverEmail.trim();
+    if (trimmedReceiverEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedReceiverEmail)) {
+      errors.receiver_email = 'Please enter a valid receiver email address.';
+    }
+    const trimmedReplyTo = connectReplyTo.trim();
+    if (trimmedReplyTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedReplyTo)) {
+      errors.reply_to = 'Please enter a valid reply-to email address.';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -178,6 +271,9 @@ export default function EmailAccountsPage({ onNavigate }) {
       await emailAccountsApi.verifyConnectCode({
         email_address: connectEmail.trim(),
         from_name: connectName.trim(),
+        receiver_name: connectReceiverName.trim() || null,
+        receiver_email: connectReceiverEmail.trim() || null,
+        reply_to: connectReplyTo.trim() || null,
         otp_code: otpCode,
       });
 
@@ -758,6 +854,18 @@ export default function EmailAccountsPage({ onNavigate }) {
                         Sender name: <strong style={{ color: '#10182B' }}>{acc.from_name}</strong>
                       </span>
 
+                      {acc.receiver_email && (
+                        <span>
+                          Receiver: <strong style={{ color: '#10182B' }}>{acc.receiver_name ? `${acc.receiver_name} (${acc.receiver_email})` : acc.receiver_email}</strong>
+                        </span>
+                      )}
+
+                      {acc.reply_to && acc.reply_to !== acc.email_address && (
+                        <span>
+                          Reply-to: <strong style={{ color: '#10182B' }}>{acc.reply_to}</strong>
+                        </span>
+                      )}
+
                       {/* Verification Status */}
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         {isVerified ? (
@@ -791,10 +899,90 @@ export default function EmailAccountsPage({ onNavigate }) {
                 </div>
 
                 {/* Account Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: '8px',
+                    flexShrink: 0,
+                    flexWrap: 'wrap',
+                    marginLeft: 'auto',
+                  }}
+                >
                   {viewMode === 'active' ? (
                     <>
-                      {/* Active Status Badge & Toggle Button */}
+                      {/* Edit Sender Action (Requirement 2) */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(acc)}
+                        title="Edit sender and receiver details"
+                        style={{
+                          height: '34px',
+                          width: '115px',
+                          boxSizing: 'border-box',
+                          justifyContent: 'center',
+                          padding: '0 12px',
+                          fontSize: '12.5px',
+                          fontWeight: 700,
+                          borderRadius: '8px',
+                          border: '1px solid #CBD5E1',
+                          backgroundColor: '#FFFFFF',
+                          color: '#334155',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 140ms ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#F8FAFC';
+                          e.currentTarget.style.borderColor = '#94A3B8';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#FFFFFF';
+                          e.currentTarget.style.borderColor = '#CBD5E1';
+                        }}
+                      >
+                        <Pencil size={13} />
+                        <span>Edit</span>
+                      </button>
+
+                      {/* Current Status Badge (display only) */}
+                      <span
+                        title={`Account status: ${isActive ? 'Active' : 'Inactive'}`}
+                        style={{
+                          height: '34px',
+                          minWidth: '88px',
+                          padding: '0 10px',
+                          boxSizing: 'border-box',
+                          fontSize: '12.5px',
+                          fontWeight: 700,
+                          borderRadius: '8px',
+                          border: isActive ? '1px solid #bbf7d0' : '1px solid #fecaca',
+                          backgroundColor: isActive ? '#f0fdf4' : '#fef2f2',
+                          color: isActive ? '#15803d' : '#b91c1c',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            width: '7px',
+                            height: '7px',
+                            borderRadius: '50%',
+                            backgroundColor: isActive ? '#16a34a' : '#dc2626',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span>{isActive ? 'Active' : 'Inactive'}</span>
+                      </span>
+
+                      {/* Separate Activate / Deactivate Action */}
                       <button
                         type="button"
                         onClick={() => handleToggleActive(acc)}
@@ -805,26 +993,43 @@ export default function EmailAccountsPage({ onNavigate }) {
                         }
                         style={{
                           height: '34px',
+                          minWidth: '104px',
                           padding: '0 12px',
+                          boxSizing: 'border-box',
                           fontSize: '12.5px',
                           fontWeight: 700,
                           borderRadius: '8px',
-                          border: isActive ? '1px solid #bbf7d0' : '1px solid #cbd5e1',
-                          backgroundColor: isActive ? '#f0fdf4' : '#f8fafc',
-                          color: isActive ? '#15803d' : '#64748b',
+                          border: isActive ? '1px solid #fecaca' : '1px solid #bbf7d0',
+                          backgroundColor: isActive ? '#ffffff' : '#f0fdf4',
+                          color: isActive ? '#b91c1c' : '#15803d',
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
+                          justifyContent: 'center',
                           gap: '6px',
+                          whiteSpace: 'nowrap',
                           transition: 'all 140ms ease',
+                          flexShrink: 0,
                         }}
                       >
                         <Power size={13} />
-                        <span>{isActive ? 'Active' : 'Deactivated'}</span>
+                        <span>{isActive ? 'Deactivate' : 'Activate'}</span>
                       </button>
 
-                      {/* Delete / Archive (disabled for primary login email) */}
-                      {!isPrimary && (
+                      {/* Keep the action columns aligned across every account row.
+                          The primary login account gets an invisible placeholder
+                          because it cannot be archived. */}
+                      {isPrimary ? (
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            display: 'inline-block',
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : (
                         <button
                           type="button"
                           onClick={() => handleArchive(acc)}
@@ -832,6 +1037,8 @@ export default function EmailAccountsPage({ onNavigate }) {
                           style={{
                             width: '34px',
                             height: '34px',
+                            boxSizing: 'border-box',
+                            flexShrink: 0,
                             borderRadius: '8px',
                             border: '1px solid #E2E8F0',
                             backgroundColor: '#FFFFFF',
@@ -940,8 +1147,8 @@ export default function EmailAccountsPage({ onNavigate }) {
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: '100%',
-              maxWidth: '460px',
+              width: '600',
+              maxWidth: '95vh',
               backgroundColor: '#FFFFFF',
               borderRadius: '16px',
               border: '1px solid rgba(226, 232, 240, 0.8)',
@@ -1050,7 +1257,7 @@ export default function EmailAccountsPage({ onNavigate }) {
                   )}
                 </div>
 
-                <div style={{ marginBottom: '24px' }}>
+                <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#172033', marginBottom: '6px' }}>
                     Sender Display Name <span style={{ color: '#ef4444' }}>*</span>
                   </label>
@@ -1080,6 +1287,64 @@ export default function EmailAccountsPage({ onNavigate }) {
                       {formErrors.name}
                     </div>
                   )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#172033', marginBottom: '6px' }}>
+                      Receiver Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Faculty Member"
+                      value={connectReceiverName}
+                      disabled={isRequestingCode}
+                      onChange={(e) => setConnectReceiverName(e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '44px',
+                        padding: '0 14px',
+                        fontSize: '14px',
+                        color: '#10182B',
+                        border: '1.5px solid #CBD5E1',
+                        borderRadius: '8px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#172033', marginBottom: '6px' }}>
+                      Receiver Email
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="e.g. target@university.edu"
+                      value={connectReceiverEmail}
+                      disabled={isRequestingCode}
+                      onChange={(e) => {
+                        setConnectReceiverEmail(e.target.value);
+                        if (formErrors.receiver_email) setFormErrors((prev) => ({ ...prev, receiver_email: null }));
+                      }}
+                      style={{
+                        width: '100%',
+                        height: '44px',
+                        padding: '0 14px',
+                        fontSize: '14px',
+                        color: '#10182B',
+                        border: formErrors.receiver_email ? '1.5px solid #ef4444' : '1.5px solid #CBD5E1',
+                        borderRadius: '8px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    {formErrors.receiver_email && (
+                      <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', fontWeight: 600 }}>
+                        {formErrors.receiver_email}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -1272,6 +1537,377 @@ export default function EmailAccountsPage({ onNavigate }) {
           </div>
         </div>
       )}
+
+      {/* =========================================================================
+          EDIT SENDER MODAL (Requirement 2 & 3: Matching Screenshot Specifications)
+          ========================================================================= */}
+      {isEditModalOpen && editingAccount && (() => {
+        const emailParts = (editingAccount.email_address || '').split('@');
+        const emailPrefix = emailParts[0] || '';
+        const emailDomain = emailParts[1] || '';
+
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-sender-title"
+            onClick={() => !isSavingEdit && setIsEditModalOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9990,
+              backgroundColor: 'rgba(16, 24, 43, 0.65)',
+              backdropFilter: 'blur(5px)',
+              display: 'flex',
+              alignItems: 'stretch',
+              justifyContent: 'flex-end',
+              padding: 0,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                  position: 'fixed',
+                  top: 0,
+                  right: 0,
+                  width: '700px',
+                  maxWidth: '100vw',
+                  height: '100dvh',
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 0,
+                  borderLeft: '1px solid rgba(226, 232, 240, 0.9)',
+                  boxShadow: '-8px 0 30px rgba(15, 23, 42, 0.12)',
+                  padding: '24px 32px',
+                  boxSizing: 'border-box',
+                  overflowY: 'hidden',
+                  overflowX: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div>
+                  <h3
+                    id="edit-sender-title"
+                    style={{ fontSize: '20px', fontWeight: 800, color: '#10182B', margin: '0 0 4px 0', letterSpacing: '-0.02em' }}
+                  >
+                    Edit sender
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#64748B', margin: 0, lineHeight: 1.45 }}>
+                    Configure your sender identity and default recipient details for outreach campaigns.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  disabled={isSavingEdit}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#94A3B8',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  title="Close modal"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Informational Guidance Text */}
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  backgroundColor: '#F0F4FF',
+                  border: '1px solid #D0E0FF',
+                  color: '#2B4FB2',
+                  fontSize: '12.5px',
+                  lineHeight: 1.45,
+                  marginBottom: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Sparkles size={16} color="#4361EE" style={{ flexShrink: 0 }} />
+                <span>
+                  Sender and receiver information saved here will be automatically populated when selecting this sender in the campaign creation workflow.
+                </span>
+              </div>
+
+              {editErrors.submit && (
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: '#FEF2F2',
+                    border: '1px solid #FECACA',
+                    color: '#B91C1C',
+                    fontSize: '12.5px',
+                    marginBottom: '16px',
+                  }}
+                >
+                  {editErrors.submit}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveEdit} noValidate>
+                {/* Sender Email Presentation (prefix@domain display) */}
+                <div style={{ marginBottom: '18px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#172033', marginBottom: '6px' }}>
+                    Sender Email Address
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ flex: 1 }}>
+                      <input
+                        type="text"
+                        value={emailPrefix}
+                        disabled
+                        aria-label="Email Prefix"
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          fontSize: '13.5px',
+                          fontWeight: 600,
+                          color: '#334155',
+                          backgroundColor: '#F8FAFC',
+                          border: '1.5px solid #CBD5E1',
+                          borderRadius: '8px',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <span style={{ fontSize: '15px', fontWeight: 700, color: '#64748B' }}>@</span>
+                    <div style={{ flex: 1.2 }}>
+                      <input
+                        type="text"
+                        value={emailDomain}
+                        disabled
+                        aria-label="Email Domain"
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 12px',
+                          fontSize: '13.5px',
+                          fontWeight: 600,
+                          color: '#334155',
+                          backgroundColor: '#F8FAFC',
+                          border: '1.5px solid #CBD5E1',
+                          borderRadius: '8px',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        backgroundColor: '#E8EDFF',
+                        color: '#4361EE',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Verified
+                    </span>
+                  </div>
+                  <span style={{ display: 'block', fontSize: '11.5px', color: '#64748B', marginTop: '4px' }}>
+                    Sender email identity is verified via ownership challenges.
+                  </span>
+                </div>
+
+                {/* Sender Name */}
+                <div style={{ marginBottom: '18px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#172033', marginBottom: '6px' }}>
+                    Sender Name <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editFromName}
+                    disabled={isSavingEdit}
+                    placeholder="e.g. Dr. Mohan Sharma"
+                    onChange={(e) => {
+                      setEditFromName(e.target.value);
+                      if (editErrors.from_name) setEditErrors((prev) => ({ ...prev, from_name: null }));
+                    }}
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      padding: '0 14px',
+                      fontSize: '14px',
+                      color: '#10182B',
+                      border: editErrors.from_name ? '1.5px solid #ef4444' : '1.5px solid #CBD5E1',
+                      borderRadius: '8px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  {editErrors.from_name && (
+                    <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', fontWeight: 600 }}>
+                      {editErrors.from_name}
+                    </div>
+                  )}
+                </div>
+
+                {/* Reply-To Email */}
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#172033', marginBottom: '6px' }}>
+                    Reply-To Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={editReplyTo}
+                    disabled={isSavingEdit}
+                    placeholder="e.g. replies@sitechseries.org"
+                    onChange={(e) => {
+                      setEditReplyTo(e.target.value);
+                      if (editErrors.reply_to) setEditErrors((prev) => ({ ...prev, reply_to: null }));
+                    }}
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      padding: '0 14px',
+                      fontSize: '14px',
+                      color: '#10182B',
+                      border: editErrors.reply_to ? '1.5px solid #ef4444' : '1.5px solid #CBD5E1',
+                      borderRadius: '8px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  {editErrors.reply_to && (
+                    <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', fontWeight: 600 }}>
+                      {editErrors.reply_to}
+                    </div>
+                  )}
+                  <span style={{ display: 'block', fontSize: '11.5px', color: '#64748B', marginTop: '4px' }}>
+                    Optional. Inbound replies from recipients will be directed to this address.
+                  </span>
+                </div>
+
+                {/* Section Divider */}
+                <div style={{ height: '1px', backgroundColor: '#E2E8F0', margin: '20px 0' }} />
+
+                {/* Receiver Name & Receiver Email Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px', marginBottom: '24px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#172033', marginBottom: '6px' }}>
+                      Receiver Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editReceiverName}
+                      disabled={isSavingEdit}
+                      placeholder="e.g. Faculty Lead / Contact"
+                      onChange={(e) => setEditReceiverName(e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        padding: '0 14px',
+                        fontSize: '14px',
+                        color: '#10182B',
+                        border: '1.5px solid #CBD5E1',
+                        borderRadius: '8px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#172033', marginBottom: '6px' }}>
+                      Receiver Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={editReceiverEmail}
+                      disabled={isSavingEdit}
+                      placeholder="e.g. recipient@university.edu"
+                      onChange={(e) => {
+                        setEditReceiverEmail(e.target.value);
+                        if (editErrors.receiver_email) setEditErrors((prev) => ({ ...prev, receiver_email: null }));
+                      }}
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        padding: '0 14px',
+                        fontSize: '14px',
+                        color: '#10182B',
+                        border: editErrors.receiver_email ? '1.5px solid #ef4444' : '1.5px solid #CBD5E1',
+                        borderRadius: '8px',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    {editErrors.receiver_email && (
+                      <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', fontWeight: 600 }}>
+                        {editErrors.receiver_email}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '16px', marginTop: 'auto', paddingBottom: '4px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    disabled={isSavingEdit}
+                    style={{
+                      height: '42px',
+                      padding: '0 18px',
+                      borderRadius: '8px',
+                      backgroundColor: '#F1F5F9',
+                      border: '1px solid #CBD5E1',
+                      color: '#475569',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isSavingEdit}
+                    style={{
+                      height: '42px',
+                      padding: '0 24px',
+                      borderRadius: '8px',
+                      backgroundColor: '#4361EE',
+                      border: 'none',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      cursor: isSavingEdit ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 12px rgba(67, 97, 238, 0.3)',
+                    }}
+                  >
+                    {isSavingEdit ? (
+                      <>
+                        <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <span>Save Changes</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* =========================================================================
           CENTERED FEEDBACK POPUP MODAL (For Conflicts, Restores, Deletes)

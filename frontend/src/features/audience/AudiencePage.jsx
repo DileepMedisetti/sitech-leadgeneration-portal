@@ -158,7 +158,7 @@ export default function AudiencePage({ onNavigate, activeParam }) {
       ) : (
         <ListsTab
           onSelectList={handleSelectList}
-          onCreateList={() => (onNavigate ? onNavigate('create-contact-list') : null)}
+          onCreateList={(mode = 'existing') => (onNavigate ? onNavigate('create-contact-list', { mode }) : null)}
         />
       )}
     </div>

@@ -19,6 +19,7 @@ export default function ChooseContactsStep({
   loadingLists = false,
   onRefreshSummary,
   fieldErrors = {},
+  onNavigate,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -133,6 +134,24 @@ export default function ChooseContactsStep({
                     ? `No lists matched "${searchQuery}". Try modifying your search query.`
                     : 'No audience contact lists are available yet.'}
                 </p>
+                {onNavigate && !searchQuery && (
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('create-contact-list', { mode: 'existing' })}
+                      className="campaign-micro-btn campaign-micro-btn-blue"
+                    >
+                      + Create List
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('create-contact-list', { mode: 'custom' })}
+                      className="campaign-micro-btn campaign-micro-btn-slate"
+                    >
+                      + Custom List (CSV)
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               filteredLists.map((list) => {

@@ -260,6 +260,7 @@ def get_contact_lists_paginated(
             "id": list_obj.id,
             "name": list_obj.name,
             "description": list_obj.description,
+            "list_type": getattr(list_obj, "list_type", "custom"),
             "contact_count": count,
             "created_at": list_obj.created_at,
             "updated_at": list_obj.updated_at,
@@ -284,6 +285,7 @@ def get_contact_list_by_id(db: Session, list_id: int) -> dict[str, Any] | None:
         "id": list_obj.id,
         "name": list_obj.name,
         "description": list_obj.description,
+        "list_type": getattr(list_obj, "list_type", "custom"),
         "contact_count": count,
         "created_at": list_obj.created_at,
         "updated_at": list_obj.updated_at,
@@ -297,11 +299,12 @@ def get_contact_list_by_name(db: Session, name: str) -> ContactList | None:
     return db.scalar(stmt)
 
 
-def create_contact_list(db: Session, name: str, description: str | None = None) -> ContactList:
+def create_contact_list(db: Session, name: str, description: str | None = None, list_type: str = "custom") -> ContactList:
     """Create a new contact list record."""
     contact_list = ContactList(
         name=name.strip(),
         description=description.strip() if description else None,
+        list_type=list_type or "custom",
     )
     db.add(contact_list)
     return contact_list

@@ -127,6 +127,40 @@ def predict_campaign_placement(
         predicted = "spam"
         risk_tier = "high_risk"
 
+    # Calculate mathematical feature importances from calibrated ensemble
+    feature_importance_list: list[dict[str, Any]] = []
+    try:
+        if hasattr(model, "calibrated_classifiers_"):
+            raw_importances = np.mean(
+                [
+                    clf.estimator.feature_importances_
+                    for clf in model.calibrated_classifiers_
+                    if hasattr(clf.estimator, "feature_importances_")
+                ],
+                axis=0,
+            )
+            for name, imp in sorted(zip(feature_names, raw_importances), key=lambda x: x[1], reverse=True)[:8]:
+                val = float(features.get(name, 0.0))
+                is_negative_signal = (
+                    "mismatch" in name
+                    or "blocker" in name
+                    or "spam" in name
+                    or "free_mailbox" in name
+                    or "shortener" in name
+                    or "hidden" in name
+                )
+                impact = "negative" if (is_negative_signal and val > 0) or (name == "has_unsubscribe" and val == 0) else "positive"
+                feature_importance_list.append({
+                    "feature": name.replace("_", " ").title(),
+                    "raw_feature": name,
+                    "weight": f"{float(imp):.3f}",
+                    "value": val,
+                    "impact": impact,
+                    "detail": f"Model feature weight: {imp:.3f} | Current value: {val}",
+                })
+    except Exception:
+        feature_importance_list = []
+
     # Persist prediction log
     pred_log = MLPredictionLog(
         campaign_id=campaign_id,
@@ -153,6 +187,7 @@ def predict_campaign_placement(
         confidence_interval=(lower_bound, upper_bound),
         risk_tier=risk_tier,
         features_used=features,
+        feature_importance=feature_importance_list,
         limitations=ML_LIMITATIONS_DISCLAIMER,
         created_at=pred_log.created_at,
     )

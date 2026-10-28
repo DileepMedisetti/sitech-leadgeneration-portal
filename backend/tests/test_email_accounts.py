@@ -274,3 +274,84 @@ def test_cross_user_global_email_uniqueness_checks(client, db: Session):
     )
     assert resp_arch.status_code == 409
     assert resp_arch.json()["detail"]["status"] == "email_in_use"
+
+
+def test_connect_with_receiver_details_and_edit_account(client, db: Session):
+    """Verify receiver details during connect and edit modal functionality."""
+    uid = uuid.uuid4().hex[:8]
+    user_email = f"sender_{uid}@example.com"
+    user, token = create_test_user(db, user_email, "Sender User")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    new_email = f"outreach_{uid}@university.edu"
+
+    # 1. Connect with receiver name and email
+    req = client.post(
+        "/api/email-accounts/connect/request-code",
+        json={
+            "email_address": new_email,
+            "from_name": "Outreach Team",
+            "receiver_name": "Dr. Recipient",
+            "receiver_email": "recipient@university.edu",
+            "reply_to": "replies@university.edu",
+        },
+        headers=headers,
+    )
+    assert req.status_code == 200
+
+    otp = get_latest_dev_otp(new_email)
+    confirm = client.post(
+        "/api/email-accounts/connect/verify-code",
+        json={
+            "email_address": new_email,
+            "from_name": "Outreach Team",
+            "receiver_name": "Dr. Recipient",
+            "receiver_email": "recipient@university.edu",
+            "reply_to": "replies@university.edu",
+            "otp_code": otp,
+        },
+        headers=headers,
+    )
+    assert confirm.status_code == 201
+    acc = confirm.json()
+    assert acc["receiver_name"] == "Dr. Recipient"
+    assert acc["receiver_email"] == "recipient@university.edu"
+    assert acc["reply_to"] == "replies@university.edu"
+    acc_id = acc["id"]
+
+    # 2. Edit account details via PUT without creating duplicates
+    put_resp = client.put(
+        f"/api/email-accounts/{acc_id}",
+        json={
+            "from_name": "Updated Outreach Team",
+            "receiver_name": "Dean Sharma",
+            "receiver_email": "dean.sharma@university.edu",
+            "reply_to": "dean.replies@university.edu",
+        },
+        headers=headers,
+    )
+    assert put_resp.status_code == 200
+    updated_acc = put_resp.json()
+    assert updated_acc["from_name"] == "Updated Outreach Team"
+    assert updated_acc["receiver_name"] == "Dean Sharma"
+    assert updated_acc["receiver_email"] == "dean.sharma@university.edu"
+    assert updated_acc["reply_to"] == "dean.replies@university.edu"
+
+    # Verify list accounts does not duplicate
+    list_resp = client.get("/api/email-accounts", headers=headers)
+    assert list_resp.status_code == 200
+    items = list_resp.json()
+    matching = [a for a in items if a["id"] == acc_id]
+    assert len(matching) == 1
+    assert matching[0]["receiver_name"] == "Dean Sharma"
+    assert matching[0]["receiver_email"] == "dean.sharma@university.edu"
+
+    # 3. Verify sender identities endpoint reflects new receiver and reply-to
+    identities_resp = client.get("/api/campaigns/sender-identities", headers=headers)
+    assert identities_resp.status_code == 200
+    identities = identities_resp.json()
+    target_ident = next((i for i in identities if i["id"] == acc_id), None)
+    assert target_ident is not None
+    assert target_ident["receiver_name"] == "Dean Sharma"
+    assert target_ident["receiver_email"] == "dean.sharma@university.edu"
+    assert target_ident["reply_to"] == "dean.replies@university.edu"

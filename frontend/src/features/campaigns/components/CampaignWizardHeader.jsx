@@ -1,6 +1,12 @@
 import React from 'react';
-import { ArrowLeft, Check, ChevronRight } from 'lucide-react';
-import { CAMPAIGN_STEPS } from '../campaignConstants';
+import { Check } from 'lucide-react';
+
+const HEADER_STEPS = [
+  { id: 1, label: 'Content', targetStep: 1 },
+  { id: 2, label: 'Audience', targetStep: 2 },
+  { id: 3, label: 'Settings', targetStep: 3 },
+  { id: 4, label: 'Review & Send', targetStep: 5 },
+];
 
 export default function CampaignWizardHeader({
   currentStep = 1,
@@ -8,21 +14,42 @@ export default function CampaignWizardHeader({
   onBackToCampaigns,
   campaignName = '',
 }) {
-  const currentStepObj = CAMPAIGN_STEPS.find((s) => s.id === currentStep) || CAMPAIGN_STEPS[0];
-  const progressPercent = Math.round(((currentStep - 1) / (CAMPAIGN_STEPS.length - 1)) * 100);
+  // Map 5 internal steps to 4 displayed header steps:
+  // 1 -> 1 (Content)
+  // 2 -> 2 (Audience)
+  // 3, 4 -> 3 (Settings)
+  // 5 -> 4 (Review & Send)
+  const activeHeaderStep =
+    currentStep === 1 ? 1 : currentStep === 2 ? 2 : currentStep <= 4 ? 3 : 4;
 
-  const handleBackToCampaignsClick = (e) => {
-    if (e && typeof e.preventDefault === 'function') e.preventDefault();
-    if (typeof onBackToCampaigns === 'function') {
-      onBackToCampaigns();
+  const handleBackToCampaignsClick = (event) => {
+    event?.preventDefault?.();
+    onBackToCampaigns?.();
+  };
+
+  const handleHeaderStepClick = (step) => {
+    if (step.id < activeHeaderStep && typeof onStepClick === 'function') {
+      onStepClick(step.targetStep);
     }
   };
 
   return (
-    <div className="campaign-wizard-top">
-      {/* 1. Breadcrumbs and Page-Level Back Navigation */}
-      <div className="campaign-top-bar">
-        <nav aria-label="Breadcrumb" className="campaign-breadcrumb">
+    <header className="campaign-wizard-top">
+      {/* Top Navigation Row: Back Link | Breadcrumb */}
+      <div className="campaign-top-nav-bar">
+        <button
+          type="button"
+          onClick={handleBackToCampaignsClick}
+          className="campaign-nav-back-button"
+          title="Return to campaigns list"
+        >
+          <span className="campaign-back-arrow" aria-hidden="true">&lsaquo;</span>
+          <span>Back to Campaigns</span>
+        </button>
+
+        <span className="campaign-nav-pipe" aria-hidden="true">|</span>
+
+        <nav aria-label="Breadcrumb" className="campaign-top-breadcrumb">
           <button
             type="button"
             onClick={handleBackToCampaignsClick}
@@ -30,107 +57,68 @@ export default function CampaignWizardHeader({
           >
             Campaigns
           </button>
-          <ChevronRight size={14} className="campaign-breadcrumb-separator" />
+          <span className="campaign-breadcrumb-chevron" aria-hidden="true">&rsaquo;</span>
           <span className="campaign-breadcrumb-current" aria-current="page">
             Create Campaign
           </span>
-          {campaignName && campaignName.trim() && (
+          {campaignName?.trim() && (
             <>
-              <span className="campaign-breadcrumb-dot">·</span>
+              <span className="campaign-breadcrumb-dot" aria-hidden="true">·</span>
               <span className="campaign-breadcrumb-draft" title={campaignName}>
-                {campaignName}
+                {campaignName.trim()}
               </span>
             </>
           )}
         </nav>
-
-        <button
-          type="button"
-          onClick={handleBackToCampaignsClick}
-          className="campaign-back-btn"
-          title="Return to campaigns list"
-        >
-          <ArrowLeft size={14} />
-          <span>Back to Campaigns</span>
-        </button>
       </div>
 
-      {/* 2. Header Title and Descriptive Subtitle */}
-      <div className="campaign-page-title-block">
-        <h1 className="campaign-page-title">Create Email Campaign</h1>
-        <p className="campaign-page-subtitle">
-          Configure sender identities, design responsive templates, select targeted audience lists, and verify deliverability before launch.
-        </p>
-      </div>
+      {/* Main Title Row with Inline 4-Step Stepper */}
+      <div className="campaign-title-stepper-row">
+        <div className="campaign-title-col">
+          <h1 className="campaign-page-title">Create Email Campaign</h1>
+          <p className="campaign-page-subtitle">
+            Configure your campaign details and design your email content.
+          </p>
+        </div>
 
-      {/* 3. Horizontal Stepper Container */}
-      <div className="campaign-stepper-wrapper">
-        {/* Desktop Stepper */}
-        <nav aria-label="Campaign Creation Progress" className="campaign-stepper-desktop">
-          {CAMPAIGN_STEPS.map((step, idx) => {
-            const isCompleted = step.id < currentStep;
-            const isActive = step.id === currentStep;
-            const canNavigate = isCompleted && onStepClick;
+        {/* 4-Step Progress Indicator Matching Approved Reference */}
+        <nav aria-label="Campaign creation progress" className="campaign-inline-stepper">
+          {HEADER_STEPS.map((step, index) => {
+            const isActive = step.id === activeHeaderStep;
+            const isCompleted = step.id < activeHeaderStep;
+            const canNavigate = isCompleted && typeof onStepClick === 'function';
 
             return (
               <React.Fragment key={step.id}>
                 <div
+                  className={`campaign-inline-step ${isActive ? 'step-active' : isCompleted ? 'step-completed' : 'step-upcoming'}`}
                   role={canNavigate ? 'button' : undefined}
                   tabIndex={canNavigate ? 0 : undefined}
-                  onClick={() => {
-                    if (canNavigate) onStepClick(step.id);
-                  }}
+                  onClick={() => handleHeaderStepClick(step)}
                   onKeyDown={(e) => {
                     if (canNavigate && (e.key === 'Enter' || e.key === ' ')) {
                       e.preventDefault();
-                      onStepClick(step.id);
+                      handleHeaderStepClick(step);
                     }
                   }}
-                  className={`campaign-step-node ${
-                    isCompleted
-                      ? 'step-completed'
-                      : isActive
-                      ? 'step-active'
-                      : 'step-upcoming'
-                  }`}
-                  title={
-                    canNavigate
-                      ? `Click to return to Step ${step.id}: ${step.label}`
-                      : isActive
-                      ? `Current Step: ${step.label}`
-                      : `Step ${step.id}: ${step.label}`
-                  }
+                  aria-current={isActive ? 'step' : undefined}
+                  aria-label={`Step ${step.id}: ${step.label}${isActive ? ', current step' : isCompleted ? ', completed' : ''}`}
+                  title={canNavigate ? `Go back to ${step.label}` : step.label}
                 >
-                  {/* Step Indicator Circle */}
                   <div
-                    className={`campaign-step-badge ${
-                      isCompleted
-                        ? 'badge-completed'
-                        : isActive
-                        ? 'badge-active'
-                        : 'badge-upcoming'
-                    }`}
+                    className={`campaign-step-num-circle ${isActive ? 'circle-active' : isCompleted ? 'circle-completed' : 'circle-upcoming'}`}
+                    aria-hidden="true"
                   >
-                    {isCompleted ? (
-                      <Check size={13} strokeWidth={2.75} aria-hidden="true" />
-                    ) : (
-                      <span>{step.id}</span>
-                    )}
+                    {isCompleted ? <Check size={14} strokeWidth={2.5} /> : step.id}
                   </div>
-
-                  {/* Step Labels */}
-                  <div className="campaign-step-text-col">
-                    <span className="campaign-step-title">{step.label}</span>
-                    <span className="campaign-step-desc">{step.desc}</span>
-                  </div>
+                  <span className={`campaign-step-name ${isActive ? 'name-active' : isCompleted ? 'name-completed' : 'name-upcoming'}`}>
+                    {step.label}
+                  </span>
                 </div>
 
-                {/* Connecting Line between steps */}
-                {idx < CAMPAIGN_STEPS.length - 1 && (
+                {index < HEADER_STEPS.length - 1 && (
                   <div
-                    className={`campaign-step-track ${
-                      step.id < currentStep ? 'track-completed' : 'track-upcoming'
-                    }`}
+                    className={`campaign-step-divider-line ${isCompleted ? 'line-completed' : 'line-upcoming'}`}
                     aria-hidden="true"
                   />
                 )}
@@ -138,54 +126,7 @@ export default function CampaignWizardHeader({
             );
           })}
         </nav>
-
-        {/* Compact Mobile / Tablet Stepper */}
-        <div className="campaign-stepper-mobile">
-          <div className="campaign-stepper-mobile-info">
-            <span className="campaign-mobile-step-number">
-              Step {currentStep} of {CAMPAIGN_STEPS.length}
-            </span>
-            <span className="campaign-mobile-step-name">
-              {currentStepObj.label}
-            </span>
-          </div>
-
-          <div
-            className="campaign-mobile-progress-track"
-            role="progressbar"
-            aria-valuenow={progressPercent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
-            <div
-              className="campaign-mobile-progress-fill"
-              style={{ width: `${Math.max(12, progressPercent)}%` }}
-            />
-          </div>
-
-          {/* Quick step navigation pills for mobile */}
-          <div className="campaign-mobile-step-pills">
-            {CAMPAIGN_STEPS.map((s) => {
-              const isPast = s.id < currentStep;
-              const isCurr = s.id === currentStep;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  disabled={!isPast}
-                  onClick={() => isPast && onStepClick && onStepClick(s.id)}
-                  className={`campaign-mobile-pill ${
-                    isPast ? 'pill-past' : isCurr ? 'pill-current' : 'pill-future'
-                  }`}
-                  aria-label={`Step ${s.id}: ${s.shortLabel}`}
-                >
-                  {isPast ? <Check size={11} strokeWidth={3} /> : s.id}
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
-    </div>
+    </header>
   );
 }

@@ -53,10 +53,13 @@ def setup_test_senders():
                 acc.is_active = True
                 acc.verification_status = "verified"
                 acc.provider_status = "ready"
-                acc.archived_at = None
+        from app.core.security import create_access_token
+        token = create_access_token({"sub": str(user.id), "email": user.email})
+        client.headers["Authorization"] = f"Bearer {token}"
         db.commit()
     finally:
         db.close()
+
 
 
 def test_campaign_crud_and_lifecycle():

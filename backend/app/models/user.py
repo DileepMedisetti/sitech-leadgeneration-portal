@@ -33,3 +33,10 @@ class User(Base):
         cascade="all, delete-orphan",
         order_by="EmailAccount.created_at.desc()",
     )
+    campaigns = relationship(
+        "Campaign",
+        back_populates="owner",
+        cascade="all, delete-orphan",
+        order_by="Campaign.created_at.desc()",
+    )
+

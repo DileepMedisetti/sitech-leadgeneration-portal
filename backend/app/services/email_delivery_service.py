@@ -7,7 +7,7 @@ import socket
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Tuple
+from typing import Any, Tuple
 
 from app.core.config import settings
 
@@ -347,11 +347,147 @@ Secure access to your workspace
         logger.error("Email delivery provider not configured in production environment.")
         return False, "Email provider is not configured. Please contact workspace administrator."
 
+    def send_campaign_email(
+        self,
+        from_name: str,
+        from_email: str,
+        recipient_email: str,
+        recipient_name: str | None,
+        subject: str,
+        html_content: str,
+        plain_text: str | None = None,
+        reply_to: str | None = None,
+        message_id: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Tuple[bool, str | None, str]:
+        """Dispatches an outbound campaign email message via authenticated SMTP or dev test adapter.
+
+        Returns (success: bool, provider_message_id: str | None, status_message: str).
+        """
+        clean_recipient = recipient_email.strip()
+        from_domain = from_email.split("@")[-1] if "@" in from_email else "sitechseries.org"
+        actual_msg_id = message_id or email.utils.make_msgid(domain=from_domain)
+
+        # Build message
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = email.utils.formataddr((from_name.strip(), from_email.strip()))
+        if recipient_name:
+            msg["To"] = email.utils.formataddr((recipient_name.strip(), clean_recipient))
+        else:
+            msg["To"] = clean_recipient
+
+        if reply_to and reply_to.strip():
+            msg["Reply-To"] = email.utils.formataddr((from_name.strip(), reply_to.strip()))
+        else:
+            msg["Reply-To"] = email.utils.formataddr((from_name.strip(), from_email.strip()))
+
+        msg["Date"] = email.utils.formatdate(localtime=True)
+        msg["Message-ID"] = actual_msg_id
+
+        if headers:
+            for k, v in headers.items():
+                if k not in msg:
+                    msg[k] = str(v)
+
+        if plain_text:
+            msg.attach(MIMEText(plain_text, "plain", "utf-8"))
+        msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+        # In non-production environments, record into dev dispatched messages cache
+        if not self.is_production:
+            _dev_dispatched_messages.append({
+                "from_email": from_email,
+                "from_name": from_name,
+                "to_email": clean_recipient,
+                "recipient_name": recipient_name,
+                "reply_to": reply_to or from_email,
+                "subject": subject,
+                "body_html": html_content,
+                "body_plain": plain_text,
+                "message_id": actual_msg_id,
+                "headers": dict(headers or {}),
+            })
+
+
+        # Security safeguard: Never dispatch real SMTP emails to reserved synthetic/test domains
+        if clean_recipient.endswith(("@example.com", "@test.com", "@test.local", "@invalid")):
+            logger.info("[SAFEGUARD] Suppressed external SMTP dispatch for synthetic address: %s", clean_recipient)
+            return True, actual_msg_id, "Campaign email accepted (Test Safe Mode)."
+
+        # 1. Attempt SMTP delivery if configured
+        if self.smtp_host:
+            server = None
+            try:
+                if self.smtp_port == 465:
+                    server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=12)
+                else:
+                    server = smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=12)
+                    if self.use_tls:
+                        server.starttls()
+
+                if self.smtp_user and self.smtp_password:
+                    server.login(self.smtp_user, self.smtp_password)
+
+                server.sendmail(from_email, [clean_recipient], msg.as_string())
+                server.quit()
+                server = None
+
+                logger.info(
+                    "Successfully dispatched campaign message to %s via %s (msg_id: %s)",
+                    clean_recipient,
+                    self.smtp_host,
+                    actual_msg_id,
+                )
+                return True, actual_msg_id, "Email delivered to SMTP provider."
+
+            except smtplib.SMTPRecipientsRefused as exc:
+                logger.error("SMTP recipient refused for %s: %s", clean_recipient, exc)
+                return False, None, f"Recipient address rejected by mail server: {exc}"
+            except smtplib.SMTPAuthenticationError:
+                logger.error("SMTP Authentication failed for campaign dispatch.")
+                return False, None, "SMTP authentication failed. Verify email account credentials."
+            except (smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected):
+                logger.error("SMTP connection lost during dispatch to %s", clean_recipient)
+                return False, None, "SMTP connection disconnected or refused."
+            except (socket.timeout, TimeoutError):
+                logger.error("SMTP connection timed out for %s", clean_recipient)
+                return False, None, "SMTP connection timed out."
+            except Exception as exc:
+                logger.error("SMTP delivery failed for %s: %s", clean_recipient, type(exc).__name__)
+                return False, None, f"SMTP delivery failure: {type(exc).__name__}"
+            finally:
+                if server:
+                    try:
+                        server.close()
+                    except Exception:
+                        pass
+
+        # 2. In Development when SMTP host is not configured
+        if not self.is_production and self.enable_dev_console:
+            logger.info("[DEV EMAIL ADAPTER] Campaign message to %s: '%s' (msg_id: %s)", clean_recipient, subject, actual_msg_id)
+            return True, actual_msg_id, "Campaign email accepted (Development Mode)."
+
+        # 3. Production without configured provider
+        logger.error("Email delivery provider not configured in production environment.")
+        return False, None, "Email provider is not configured. Please contact administrator."
+
 
 # In-memory dictionary for development/test suite assertions only
 _dev_otp_cache: dict[str, str] = {}
+_dev_dispatched_messages: list[dict[str, Any]] = []
 
 
 def get_latest_dev_otp(email_addr: str) -> str | None:
     """Development testing helper: retrieves the latest generated OTP for automated tests."""
     return _dev_otp_cache.get(email_addr.lower())
+
+
+def get_dispatched_campaign_messages() -> list[dict[str, Any]]:
+    """Development testing helper: retrieves dispatched campaign messages."""
+    return list(_dev_dispatched_messages)
+
+
+def clear_dispatched_campaign_messages() -> None:
+    """Development testing helper: clears recorded dispatched campaign messages."""
+    _dev_dispatched_messages.clear()

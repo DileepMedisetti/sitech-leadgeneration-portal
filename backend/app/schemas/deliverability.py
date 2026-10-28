@@ -154,5 +154,6 @@ class MLPredictionResponse(BaseModel):
     confidence_interval: tuple[float, float] | None = None
     risk_tier: Literal["low_risk", "moderate_risk", "high_risk"] | None = None
     features_used: dict[str, Any] = {}
+    feature_importance: list[dict[str, Any]] = []
     limitations: str
     created_at: datetime

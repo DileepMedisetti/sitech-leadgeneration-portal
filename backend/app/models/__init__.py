@@ -8,6 +8,8 @@ from app.models.campaign import (
     CampaignContent,
     CampaignAudienceList,
     CampaignRecipientSnapshot,
+    CampaignReply,
+    CampaignEngagementEvent,
 )
 from app.models.deliverability import (
     DeliverabilityReport,
@@ -19,6 +21,7 @@ from app.models.deliverability import (
 from app.models.user import User
 from app.models.otp_challenge import OtpChallenge
 from app.models.email_account import EmailAccount
+from app.models.email_template import EmailTemplate
 
 __all__ = [
     "Lead",
@@ -31,6 +34,8 @@ __all__ = [
     "CampaignContent",
     "CampaignAudienceList",
     "CampaignRecipientSnapshot",
+    "CampaignReply",
+    "CampaignEngagementEvent",
     "DeliverabilityReport",
     "PlacementTestJob",
     "PlacementTestSeedResult",
@@ -39,4 +44,5 @@ __all__ = [
     "User",
     "OtpChallenge",
     "EmailAccount",
+    "EmailTemplate",
 ]

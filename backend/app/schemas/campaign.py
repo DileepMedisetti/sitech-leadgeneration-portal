@@ -26,9 +26,11 @@ ContentEditorMode = Literal["template_gallery", "html_editor"]
 class CampaignContentBase(BaseModel):
     subject: str = Field(..., min_length=1, max_length=500)
     preview_text: str | None = Field(default=None, max_length=500)
-    from_name: str = Field(..., min_length=1, max_length=255)
-    from_email: str = Field(..., min_length=3, max_length=320)
+    from_name: str | None = Field(default=None, max_length=255)
+    from_email: str | None = Field(default=None, max_length=320)
     reply_to: str | None = Field(default=None, max_length=320)
+    receiver_name: str | None = Field(default=None, max_length=255)
+    receiver_email: str | None = Field(default=None, max_length=320)
     html_content: str = Field(..., min_length=1)
     plain_text: str | None = None
     editor_mode: ContentEditorMode = "html_editor"
@@ -77,6 +79,7 @@ class CampaignAudienceSummaryResponse(BaseModel):
 class CampaignCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
+    email_account_id: int | None = None
     content: CampaignContentCreate | None = None
     contact_list_ids: list[int] = []
     tags: list[str] = []
@@ -85,6 +88,7 @@ class CampaignCreate(BaseModel):
 class CampaignUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
+    email_account_id: int | None = None
     content: CampaignContentCreate | None = None
     contact_list_ids: list[int] | None = None
     tags: list[str] | None = None
@@ -118,6 +122,7 @@ class CampaignResponse(BaseModel):
     subject: str | None = None
     status: CampaignStatus
     tags: list[str] = []
+    email_account_id: int | None = None
     current_content_version: int | None = None
     total_recipients: int = 0
     sent_count: int = 0
@@ -154,10 +159,16 @@ class PaginatedCampaignsResponse(BaseModel):
 
 
 class PreflightCheckItem(BaseModel):
+    id: str | None = None
     category: str
     label: str
-    status: Literal["passed", "warning", "blocked"]
+    status: Literal["passed", "warning", "blocked", "unavailable", "pending", "not_applicable"]
     detail: str
+    why_it_matters: str | None = None
+    recommendation: str | None = None
+    related_step: int | None = None
+    action_label: str | None = None
+    evidence: dict[str, Any] | None = None
 
 
 class CampaignPreflightResponse(BaseModel):

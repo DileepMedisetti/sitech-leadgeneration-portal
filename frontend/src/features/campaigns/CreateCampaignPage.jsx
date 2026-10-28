@@ -8,17 +8,26 @@ import { campaignsApi, audienceApi, deliverabilityApi } from '../../services/api
 
 import { CAMPAIGN_STEPS } from './campaignConstants';
 import CampaignWizardHeader from './components/CampaignWizardHeader';
-import CampaignDetailsStep from './components/CampaignDetailsStep';
-import EmailDesignStep from './components/EmailDesignStep';
+import ContentStep from './components/ContentStep';
 import ChooseContactsStep from './components/ChooseContactsStep';
 import ScheduleStep from './components/ScheduleStep';
+import PlacementAnalysisStep from './components/PlacementAnalysisStep';
 import ReviewStep from './components/ReviewStep';
 import ConfirmationModal from '../../components/ui/ConfirmationModal';
+import { getCampaignDraft, saveCampaignDraft } from './campaignDraftStore';
+import { convertLocalToUtcIso, validateFutureScheduledTime } from './timezoneUtil';
 import './campaigns.css';
 
-export default function CreateCampaignPage({ onNavigate, registerNavBlocker, previousRoute }) {
+export default function CreateCampaignPage({
+  campaignId: initialCampaignId = null,
+  onNavigate,
+  registerNavBlocker,
+  previousRoute,
+}) {
+  const initialDraft = getCampaignDraft();
+
   const [currentStep, setCurrentStep] = useState(1);
-  const [campaignId, setCampaignId] = useState(null);
+  const [campaignId, setCampaignId] = useState(initialCampaignId || initialDraft.campaignId || null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -27,38 +36,45 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [pendingDestination, setPendingDestination] = useState(null);
 
-  // Step 1: Campaign Details State
-  const [campaignName, setCampaignName] = useState('Academic Research Symposium Outreach');
-  const [subject, setSubject] = useState('Cross-Institutional Research Initiative — Faculty Collaboration');
-  const [previewText, setPreviewText] = useState('Reviewing joint computational research opportunities with faculty colleagues.');
-  const [fromName, setFromName] = useState('Sitech Academic Outreach');
-  const [fromEmail, setFromEmail] = useState('outreach@sitechseries.org');
-  const [replyTo, setReplyTo] = useState('outreach@sitechseries.org');
-  const [selectedTags, setSelectedTags] = useState(['Faculty Outreach']);
-  const [trackingOptions, setTrackingOptions] = useState({
-    track_opens: true,
-    track_clicks: true,
-  });
+  // Step 1: Content State (Campaign Details + Email Design)
+  const [campaignName, setCampaignName] = useState(initialDraft.campaignName || 'Product Update - October 2024');
+  const [subject, setSubject] = useState(initialDraft.subject || 'Exciting Updates from Sitech Series');
+  const [previewText, setPreviewText] = useState(initialDraft.previewText || 'Discover new features and improvements to help you grow faster.');
+  const [fromName, setFromName] = useState(initialDraft.fromName || 'Sitech Series');
+  const [fromEmail, setFromEmail] = useState(initialDraft.fromEmail || 'noreply@sitechseries.com');
+  const [replyTo, setReplyTo] = useState(initialDraft.replyTo || 'replies@sitechseries.com');
+  const [isReplyToManuallyEdited, setIsReplyToManuallyEdited] = useState(Boolean(initialDraft.isReplyToManuallyEdited));
+  const [emailAccountId, setEmailAccountId] = useState(initialDraft.emailAccountId || null);
+  const [receiverName, setReceiverName] = useState(initialDraft.receiverName || 'Sitech Series');
+  const [receiverEmail, setReceiverEmail] = useState(initialDraft.receiverEmail || 'replies@sitechseries.com');
+  const [selectedTags, setSelectedTags] = useState(initialDraft.selectedTags || ['Product Update', 'Q4 2024']);
+  const [trackingOptions, setTrackingOptions] = useState(
+    initialDraft.trackingOptions || {
+      track_opens: true,
+      track_clicks: true,
+    }
+  );
 
-  // Step 2: Email Design State
-  const [editorMode, setEditorMode] = useState('template_gallery'); // 'template_gallery' | 'html_editor'
-  const [selectedTemplateId, setSelectedTemplateId] = useState('research_collab');
-  const [htmlContent, setHtmlContent] = useState('');
-  const [plainText, setPlainText] = useState('');
+  const [editorMode, setEditorMode] = useState(initialDraft.editorMode || 'template_gallery'); // 'template_gallery' | 'html_editor'
+  const [selectedTemplateId, setSelectedTemplateId] = useState(initialDraft.selectedTemplateId || null);
+  const [htmlContent, setHtmlContent] = useState(initialDraft.htmlContent || '');
+  const [plainText, setPlainText] = useState(initialDraft.plainText || '');
 
-  // Step 3: Audience State
+  // Step 2: Choose Contacts State
   const [availableLists, setAvailableLists] = useState([]);
-  const [selectedListIds, setSelectedListIds] = useState([]);
+  const [selectedListIds, setSelectedListIds] = useState(initialDraft.selectedListIds || []);
   const [audienceSummary, setAudienceSummary] = useState(null);
   const [loadingLists, setLoadingLists] = useState(false);
 
-  // Step 4: Schedule State
-  const [sendImmediately, setSendImmediately] = useState(true);
-  const [scheduledAtDate, setScheduledAtDate] = useState('');
-  const [scheduledAtTime, setScheduledAtTime] = useState('09:00');
-  const [timezoneName, setTimezoneName] = useState('UTC');
+  // Step 3: Schedule State
+  const [sendImmediately, setSendImmediately] = useState(
+    initialDraft.sendImmediately !== undefined ? initialDraft.sendImmediately : true
+  );
+  const [scheduledAtDate, setScheduledAtDate] = useState(initialDraft.scheduledAtDate || '');
+  const [scheduledAtTime, setScheduledAtTime] = useState(initialDraft.scheduledAtTime || '09:00');
+  const [timezoneName, setTimezoneName] = useState(initialDraft.timezoneName || 'UTC');
 
-  // Step 5: Deliverability & Review State
+  // Step 4 & 5: Deliverability, Placement, Preflight, and Review State
   const [deliverabilityReport, setDeliverabilityReport] = useState(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [placementTest, setPlacementTest] = useState(null);
@@ -77,9 +93,103 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     });
   };
 
-  // Fetch available contact lists when entering Step 3
+  // Auto-sync step 1 campaign fields to draft store
   useEffect(() => {
-    if (currentStep === 3 && availableLists.length === 0) {
+    saveCampaignDraft({
+      campaignName,
+      subject,
+      previewText,
+      fromName,
+      fromEmail,
+      replyTo,
+      isReplyToManuallyEdited,
+      emailAccountId,
+      receiverName,
+      receiverEmail,
+      selectedTags,
+      trackingOptions,
+      htmlContent,
+      selectedTemplateId,
+      editorMode,
+    });
+  }, [
+    campaignName,
+    subject,
+    previewText,
+    fromName,
+    fromEmail,
+    replyTo,
+    isReplyToManuallyEdited,
+    emailAccountId,
+    receiverName,
+    receiverEmail,
+    selectedTags,
+    trackingOptions,
+    htmlContent,
+    selectedTemplateId,
+    editorMode,
+  ]);
+
+  // Restore draft from backend if initialCampaignId prop is provided
+  useEffect(() => {
+    if (!initialCampaignId) return;
+
+    let isMounted = true;
+    setCampaignId(initialCampaignId);
+
+    const loadDraft = async () => {
+      try {
+        const data = await campaignsApi.get(initialCampaignId);
+        if (!isMounted || !data) return;
+
+        if (data.name) setCampaignName(data.name);
+        if (data.tags) setSelectedTags(data.tags);
+        if (data.content) {
+          if (data.content.subject) setSubject(data.content.subject);
+          if (data.content.preview_text) setPreviewText(data.content.preview_text);
+          if (data.content.from_name) setFromName(data.content.from_name);
+          if (data.content.from_email) setFromEmail(data.content.from_email);
+          if (data.content.reply_to) {
+            setReplyTo(data.content.reply_to);
+            setIsReplyToManuallyEdited(true);
+          }
+          if (data.content.html_content) setHtmlContent(data.content.html_content);
+          if (data.content.plain_text) setPlainText(data.content.plain_text);
+          if (data.content.editor_mode) setEditorMode(data.content.editor_mode);
+          if (data.content.template_id) setSelectedTemplateId(data.content.template_id);
+        }
+        if (data.email_account_id) setEmailAccountId(data.email_account_id);
+        if (data.audience_list_ids && data.audience_list_ids.length > 0) {
+          setSelectedListIds(data.audience_list_ids.map(Number));
+        }
+        if (data.tracking_options) setTrackingOptions(data.tracking_options);
+        if (data.scheduled_at) {
+          setSendImmediately(false);
+          const dt = new Date(data.scheduled_at);
+          if (!isNaN(dt.getTime())) {
+            setScheduledAtDate(dt.toISOString().split('T')[0]);
+            const hh = String(dt.getUTCHours()).padStart(2, '0');
+            const mm = String(dt.getUTCMinutes()).padStart(2, '0');
+            setScheduledAtTime(`${hh}:${mm}`);
+            setTimezoneName('UTC');
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setErrorMessage(err.message || 'Failed to load campaign draft for editing.');
+        }
+      }
+    };
+
+    loadDraft();
+    return () => {
+      isMounted = false;
+    };
+  }, [initialCampaignId]);
+
+  // Fetch available contact lists when entering Step 2: Choose Contacts
+  useEffect(() => {
+    if (currentStep === 2 && availableLists.length === 0) {
       setLoadingLists(true);
       audienceApi
         .getLists({ page: 1, page_size: 100 })
@@ -97,9 +207,9 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     }
   }, [currentStep, availableLists.length, selectedListIds.length]);
 
-  // Live calculation of deduplicated audience summary when selections change on Step 3
+  // Live calculation of deduplicated audience summary when selections change on Step 2
   useEffect(() => {
-    if (currentStep !== 3) return;
+    if (currentStep !== 2) return;
 
     if (selectedListIds.length === 0) {
       setAudienceSummary(null);
@@ -143,9 +253,9 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     }
   }, [campaignId]);
 
-  // Load preflight checks when reaching Step 5
+  // Load preflight checks when entering Step 4 (Placement Analysis) or Step 5 (Review)
   useEffect(() => {
-    if (currentStep === 5 && campaignId) {
+    if ((currentStep === 4 || currentStep === 5) && campaignId) {
       loadPreflightAndIntelligence();
     }
   }, [currentStep, campaignId, loadPreflightAndIntelligence]);
@@ -185,8 +295,8 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     setAudienceSummary(null);
   };
 
-  // Step 1 -> Step 2 validation
-  const handleProceedFromStep1 = () => {
+  // Step 1 (Content) -> Step 2 (Choose Contacts)
+  const handleProceedFromStep1 = async () => {
     setErrorMessage(null);
     const errors = {};
 
@@ -202,6 +312,9 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     if (!fromEmail.trim()) {
       errors.fromEmail = 'Sender email address is required.';
     }
+    if (!htmlContent || !htmlContent.trim()) {
+      errors.content = 'Please select an email template or write HTML content.';
+    }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -209,19 +322,8 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     }
 
     setFieldErrors({});
-    setCurrentStep(2);
-  };
-
-  // Step 2 -> Step 3: Save campaign draft & content snapshot
-  const handleProceedFromStep2 = async () => {
-    setErrorMessage(null);
-    if (!htmlContent || !htmlContent.trim()) {
-      setFieldErrors({ content: 'Please select an email template or write HTML content.' });
-      return;
-    }
-
-    setFieldErrors({});
     setSubmitting(true);
+
     try {
       const payload = {
         name: campaignName.trim(),
@@ -231,21 +333,49 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
           preview_text: previewText.trim() || null,
           from_name: fromName.trim(),
           from_email: fromEmail.trim().toLowerCase(),
-          reply_to: replyTo.trim().toLowerCase() || null,
+          reply_to: replyTo ? replyTo.trim().toLowerCase() : null,
+          receiver_name: receiverName ? receiverName.trim() : null,
+          receiver_email: receiverEmail ? receiverEmail.trim().toLowerCase() : null,
           html_content: htmlContent,
           plain_text: plainText.trim() || null,
           editor_mode: editorMode === 'template_gallery' ? 'template_gallery' : 'html_editor',
           template_id: editorMode === 'template_gallery' ? selectedTemplateId : null,
         },
+        email_account_id: emailAccountId || undefined,
+        tracking_options: trackingOptions,
       };
 
-      if (!campaignId) {
+      let activeId = campaignId;
+      if (!activeId) {
         const created = await campaignsApi.create(payload);
-        setCampaignId(created.id);
+        activeId = created.id;
+        setCampaignId(activeId);
       } else {
-        await campaignsApi.update(campaignId, payload);
+        await campaignsApi.update(activeId, payload);
       }
-      setCurrentStep(3);
+
+      saveCampaignDraft({
+        campaignId: activeId,
+        campaignName,
+        subject,
+        previewText,
+        fromName,
+        fromEmail,
+        replyTo,
+        isReplyToManuallyEdited,
+        emailAccountId,
+        receiverName,
+        receiverEmail,
+        selectedTags,
+        htmlContent,
+        plainText,
+        editorMode,
+        selectedTemplateId,
+        trackingOptions,
+        currentStep: 2,
+      });
+
+      setCurrentStep(2);
     } catch (err) {
       setErrorMessage(err.message || 'Failed to save campaign content draft.');
     } finally {
@@ -253,8 +383,8 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     }
   };
 
-  // Step 3 -> Step 4: Save audience selection & snapshot
-  const handleProceedFromStep3 = async () => {
+  // Step 2 (Choose Contacts) -> Step 3 (Schedule)
+  const handleProceedFromStep2 = async () => {
     setErrorMessage(null);
     if (selectedListIds.length === 0) {
       setFieldErrors({ audience: 'Please select at least one contact list to receive this outreach.' });
@@ -273,7 +403,13 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
         setSubmitting(false);
         return;
       }
-      setCurrentStep(4);
+
+      saveCampaignDraft({
+        selectedListIds,
+        currentStep: 3,
+      });
+
+      setCurrentStep(3);
     } catch (err) {
       setErrorMessage(err.message || 'Failed to assign audience lists.');
     } finally {
@@ -281,25 +417,36 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     }
   };
 
-  // Step 4 -> Step 5: Validate schedule
-  const handleProceedFromStep4 = () => {
+  // Step 3 (Schedule) -> Step 4 (Placement Analysis)
+  const handleProceedFromStep3 = () => {
     setErrorMessage(null);
     if (!sendImmediately) {
-      if (!scheduledAtDate) {
-        setFieldErrors({ schedule: 'Please select a scheduled send date.' });
-        return;
-      }
-      const combined = new Date(`${scheduledAtDate}T${scheduledAtTime || '00:00'}:00Z`);
-      if (combined <= new Date()) {
-        setFieldErrors({ schedule: 'Scheduled date and time must be set in the future.' });
+      const scheduleValidation = validateFutureScheduledTime(scheduledAtDate, scheduledAtTime, timezoneName);
+      if (!scheduleValidation.valid) {
+        setFieldErrors({ schedule: scheduleValidation.error });
         return;
       }
     }
+
     setFieldErrors({});
+    saveCampaignDraft({
+      sendImmediately,
+      scheduledAtDate,
+      scheduledAtTime,
+      timezoneName,
+      currentStep: 4,
+    });
+    setCurrentStep(4);
+  };
+
+  // Step 4 (Placement Analysis) -> Step 5 (Review and Run)
+  const handleProceedFromStep4 = async () => {
+    setErrorMessage(null);
+    await loadPreflightAndIntelligence();
     setCurrentStep(5);
   };
 
-  // Step 5 Actions: Deliverability Analysis On-Demand
+  // Deliverability Analysis On-Demand
   const handleRunDeliverabilityAnalysis = async () => {
     if (!campaignId) return;
     setLoadingAnalysis(true);
@@ -309,13 +456,13 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
       setDeliverabilityReport(report);
       await loadPreflightAndIntelligence();
     } catch (err) {
-      setErrorMessage(err.message || 'Analysis failed.');
+      setErrorMessage(err.message || 'Deliverability analysis failed.');
     } finally {
       setLoadingAnalysis(false);
     }
   };
 
-  // Step 5 Actions: Controlled Placement Test On-Demand
+  // Controlled Placement Test On-Demand
   const handleRunPlacementTest = async () => {
     if (!campaignId) return;
     setLoadingPlacement(true);
@@ -333,7 +480,7 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     }
   };
 
-  // Step 5 Actions: Request ML Placement Prediction On-Demand
+  // Request ML Placement Prediction On-Demand
   const handleRequestMLPrediction = async () => {
     if (!campaignId) return;
     setLoadingML(true);
@@ -348,15 +495,21 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     }
   };
 
-  // Final Dispatch or Schedule Execution
-  const handleConfirmLaunch = async () => {
+  // Final Dispatch or Schedule Execution on Step 5
+  const handleConfirmLaunch = async (bypassWarnings = false) => {
     if (!campaignId) return;
     setSubmitting(true);
     setErrorMessage(null);
 
     let scheduledUtc = null;
     if (!sendImmediately && scheduledAtDate) {
-      scheduledUtc = new Date(`${scheduledAtDate}T${scheduledAtTime || '09:00'}:00Z`).toISOString();
+      try {
+        scheduledUtc = convertLocalToUtcIso(scheduledAtDate, scheduledAtTime || '09:00', timezoneName);
+      } catch (err) {
+        setErrorMessage(err.message || 'Invalid scheduled date or time.');
+        setSubmitting(false);
+        return;
+      }
     }
 
     try {
@@ -365,7 +518,16 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
         scheduled_at: scheduledUtc,
         timezone_name: timezoneName,
         confirmed: true,
+        bypass_warnings: bypassWarnings,
       });
+
+      // Clear draft session upon verified launch/schedule
+      try {
+        sessionStorage.removeItem('sitech_campaign_draft_v1');
+      } catch {
+        // ignore
+      }
+
       onNavigate('campaigns');
     } catch (err) {
       setErrorMessage(err.message || 'Failed to dispatch campaign.');
@@ -377,13 +539,13 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
   // Evaluate whether form has modified unsaved changes
   const hasUnsavedChanges = useCallback(() => {
     if (currentStep > 1) return true;
-    if (campaignId !== null) return true;
-    if (campaignName !== 'Academic Research Symposium Outreach') return true;
-    if (subject !== 'Cross-Institutional Research Initiative — Faculty Collaboration') return true;
-    if (previewText !== 'Reviewing joint computational research opportunities with faculty colleagues.') return true;
-    if (fromName !== 'Sitech Academic Outreach') return true;
-    if (fromEmail !== 'outreach@sitechseries.org') return true;
-    if (replyTo !== 'outreach@sitechseries.org') return true;
+    if (campaignId !== null && campaignId !== initialCampaignId) return true;
+    if (campaignName !== (initialDraft.campaignName || 'Academic Research Symposium Outreach')) return true;
+    if (subject !== (initialDraft.subject || 'Cross-Institutional Research Initiative — Faculty Collaboration')) return true;
+    if (previewText !== (initialDraft.previewText || 'Reviewing joint computational research opportunities with faculty colleagues.')) return true;
+    if (fromName !== (initialDraft.fromName || 'Sitech Academic Outreach')) return true;
+    if (fromEmail !== (initialDraft.fromEmail || 'outreach@sitechseries.org')) return true;
+    if (replyTo !== (initialDraft.replyTo || 'outreach@sitechseries.org')) return true;
     if (htmlContent.trim() !== '') return true;
     if (plainText.trim() !== '') return true;
     if (selectedListIds.length > 0) return true;
@@ -391,6 +553,7 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
   }, [
     currentStep,
     campaignId,
+    initialCampaignId,
     campaignName,
     subject,
     previewText,
@@ -400,9 +563,10 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     htmlContent,
     plainText,
     selectedListIds.length,
+    initialDraft,
   ]);
 
-  // Intercept in-app navigation (sidebar, header, etc.) if unsaved changes exist
+  // Intercept in-app navigation if unsaved changes exist
   useEffect(() => {
     if (!registerNavBlocker) return;
     registerNavBlocker((targetTab, targetParam) => {
@@ -413,9 +577,9 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
       if (hasUnsavedChanges()) {
         setPendingDestination({ tab: safeTab, param: safeParam });
         setShowLeaveModal(true);
-        return true; // Block immediate navigation
+        return true;
       }
-      return false; // Proceed directly
+      return false;
     });
     return () => registerNavBlocker(null);
   }, [registerNavBlocker, hasUnsavedChanges]);
@@ -454,7 +618,6 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
   };
 
   const handleExitToCampaigns = (targetDestination = 'campaigns', targetParam = null) => {
-    // Strictly sanitize destination: ensure valid route string, reject event objects
     const isValidString = typeof targetDestination === 'string' && targetDestination.trim().length > 0;
     const resolvedTab = isValidString ? targetDestination.trim() : 'campaigns';
     const resolvedParam = isValidString ? (targetParam ?? null) : null;
@@ -469,20 +632,13 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
 
   const handleConfirmLeave = () => {
     setShowLeaveModal(false);
-
-    // Retrieve pending destination and clear pending state
     const target = pendingDestination;
     setPendingDestination(null);
 
-    // Unregister navigation blocker so it does not block the confirmed departure
     if (registerNavBlocker) {
       registerNavBlocker(null);
     }
 
-    // Determine final destination:
-    // 1) Explicit pendingDestination intercepted by blocker or exit action
-    // 2) Previous valid in-app route if known (and not self)
-    // 3) 'campaigns' as default fallback
     let destinationTab = 'campaigns';
     let destinationParam = null;
 
@@ -519,15 +675,17 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
     if (submitting) return 'Saving...';
     switch (currentStep) {
       case 1:
-        return 'Continue to Email Design';
+        return 'Proceed to Choose Contacts';
       case 2:
-        return 'Continue to Audience';
+        return 'Proceed to Schedule';
       case 3:
-        return 'Continue to Schedule';
+        return 'Proceed to Placement Analysis';
       case 4:
-        return 'Continue to Review';
+        return 'Proceed to Final Review';
+      case 5:
+        return sendImmediately ? 'Launch Outreach Campaign' : 'Schedule Outreach Campaign';
       default:
-        return 'Save & Continue';
+        return 'Next Step';
     }
   };
 
@@ -536,7 +694,11 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
       {/* 1. Header with Breadcrumbs, Title, Subtitle, and 5-Step Stepper */}
       <CampaignWizardHeader
         currentStep={currentStep}
-        onStepClick={(step) => setCurrentStep(step)}
+        onStepClick={(step) => {
+          if (step <= currentStep) {
+            setCurrentStep(step);
+          }
+        }}
         onBackToCampaigns={() => handleExitToCampaigns('campaigns')}
         campaignName={campaignName}
       />
@@ -567,9 +729,9 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
           </div>
         )}
 
-        {/* Step 1: Campaign Details */}
+        {/* Step 1: Content (Unified Campaign Details + Email Design) */}
         {currentStep === 1 && (
-          <CampaignDetailsStep
+          <ContentStep
             campaignName={campaignName}
             setCampaignName={setCampaignName}
             subject={subject}
@@ -582,8 +744,24 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
             setFromEmail={setFromEmail}
             replyTo={replyTo}
             setReplyTo={setReplyTo}
+            isReplyToManuallyEdited={isReplyToManuallyEdited}
+            setIsReplyToManuallyEdited={setIsReplyToManuallyEdited}
+            emailAccountId={emailAccountId}
+            setEmailAccountId={setEmailAccountId}
+            receiverName={receiverName}
+            setReceiverName={setReceiverName}
+            receiverEmail={receiverEmail}
+            setReceiverEmail={setReceiverEmail}
             selectedTags={selectedTags}
             setSelectedTags={setSelectedTags}
+            selectedTemplateId={selectedTemplateId}
+            setSelectedTemplateId={setSelectedTemplateId}
+            htmlContent={htmlContent}
+            setHtmlContent={setHtmlContent}
+            plainText={plainText}
+            setPlainText={setPlainText}
+            editorMode={editorMode}
+            setEditorMode={setEditorMode}
             trackingOptions={trackingOptions}
             setTrackingOptions={setTrackingOptions}
             fieldErrors={fieldErrors}
@@ -592,31 +770,8 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
           />
         )}
 
-        {/* Step 2: Email Design */}
+        {/* Step 2: Choose Contacts */}
         {currentStep === 2 && (
-          <EmailDesignStep
-            editorMode={editorMode}
-            setEditorMode={setEditorMode}
-            selectedTemplateId={selectedTemplateId}
-            setSelectedTemplateId={setSelectedTemplateId}
-            htmlContent={htmlContent}
-            setHtmlContent={setHtmlContent}
-            plainText={plainText}
-            setPlainText={setPlainText}
-            subject={subject}
-            setSubject={setSubject}
-            previewText={previewText}
-            setPreviewText={setPreviewText}
-            fromName={fromName}
-            fromEmail={fromEmail}
-            fieldErrors={fieldErrors}
-            clearFieldError={clearFieldError}
-            onNavigate={onNavigate}
-          />
-        )}
-
-        {/* Step 3: Audience */}
-        {currentStep === 3 && (
           <ChooseContactsStep
             availableLists={availableLists}
             selectedListIds={selectedListIds}
@@ -626,6 +781,7 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
             audienceSummary={audienceSummary}
             loadingLists={loadingLists}
             fieldErrors={fieldErrors}
+            onNavigate={onNavigate}
             onRefreshSummary={async () => {
               if (campaignId && selectedListIds.length > 0) {
                 const s = await campaignsApi.selectAudience(campaignId, selectedListIds.map(Number));
@@ -635,8 +791,8 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
           />
         )}
 
-        {/* Step 4: Schedule */}
-        {currentStep === 4 && (
+        {/* Step 3: Schedule */}
+        {currentStep === 3 && (
           <ScheduleStep
             sendImmediately={sendImmediately}
             setSendImmediately={setSendImmediately}
@@ -652,7 +808,24 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
           />
         )}
 
-        {/* Step 5: Review */}
+        {/* Step 4: Placement Analysis */}
+        {currentStep === 4 && (
+          <PlacementAnalysisStep
+            campaignId={campaignId}
+            preflight={preflight}
+            loadingPreflight={loadingPreflight}
+            deliverabilityReport={deliverabilityReport}
+            loadingAnalysis={loadingAnalysis}
+            onRunDeliverabilityAnalysis={handleRunDeliverabilityAnalysis}
+            mlPrediction={mlPrediction}
+            loadingML={loadingML}
+            onRequestMLPrediction={handleRequestMLPrediction}
+            onJumpToStep={(s) => setCurrentStep(s)}
+            onProceedToReview={() => setCurrentStep(5)}
+          />
+        )}
+
+        {/* Step 5: Review and Run Campaign */}
         {currentStep === 5 && (
           <ReviewStep
             campaignName={campaignName}
@@ -661,13 +834,15 @@ export default function CreateCampaignPage({ onNavigate, registerNavBlocker, pre
             fromName={fromName}
             fromEmail={fromEmail}
             replyTo={replyTo}
+            receiverName={receiverName}
+            receiverEmail={receiverEmail}
             selectedTags={selectedTags}
             editorMode={editorMode}
             selectedTemplateId={selectedTemplateId}
             htmlContent={htmlContent}
             selectedListNames={selectedListNames}
             grossContacts={grossContactsCount}
-            eligibleContacts={audienceSummary?.eligible_contacts || grossContactsCount}
+            eligibleContacts={audienceSummary?.eligible_contacts ?? grossContactsCount}
             sendImmediately={sendImmediately}
             scheduledAtDate={scheduledAtDate}
             scheduledAtTime={scheduledAtTime}

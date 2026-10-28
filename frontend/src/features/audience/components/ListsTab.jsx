@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   PlusCircle,
+  FolderPlus,
+  FileSpreadsheet,
   Search,
   Users,
   ChevronRight,
@@ -193,15 +195,25 @@ export default function ListsTab({ onSelectList, onCreateList }) {
           )}
         </div>
 
-        {/* Create List Primary Action */}
-        <button
-          onClick={onCreateList}
-          className="btn btn-primary"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          <PlusCircle size={15} />
-          <span>Create List</span>
-        </button>
+        {/* Create Audience List Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => onCreateList && onCreateList('custom')}
+            className="btn btn-primary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12.5px',
+              fontWeight: 600,
+            }}
+            title="Create custom list by adding contacts manually or importing CSV/XLSX"
+          >
+            <PlusCircle size={15} />
+            <span>Create New List</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -220,9 +232,24 @@ export default function ListsTab({ onSelectList, onCreateList }) {
               : 'Create your first saved list to organize verified contacts for future outreach.'
           }
           action={
-            <button onClick={onCreateList} className="btn btn-primary">
-              <PlusCircle size={14} /> Create Contact List
-            </button>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => onCreateList && onCreateList('existing')}
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <FolderPlus size={14} /> Create from Leads
+              </button>
+              <button
+                type="button"
+                onClick={() => onCreateList && onCreateList('custom')}
+                className="btn btn-primary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <PlusCircle size={14} /> Custom Contact List
+              </button>
+            </div>
           }
         />
       ) : (
@@ -232,6 +259,7 @@ export default function ListsTab({ onSelectList, onCreateList }) {
               <thead>
                 <tr>
                   <th>List Name</th>
+                  <th>Type</th>
                   <th>Description</th>
                   <th style={{ textAlign: 'center' }}>Contacts</th>
                   <th>Last Updated</th>
@@ -252,6 +280,23 @@ export default function ListsTab({ onSelectList, onCreateList }) {
                           {item.name}
                         </span>
                       </div>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          backgroundColor: item.list_type === 'generated' ? '#f5f3ff' : '#eff6ff',
+                          color: item.list_type === 'generated' ? '#7c3aed' : '#2563eb',
+                          border: item.list_type === 'generated' ? '1px solid #ddd6fe' : '1px solid #bfdbfe',
+                        }}
+                      >
+                        {item.list_type === 'generated' ? 'Generated' : 'Custom'}
+                      </span>
                     </td>
                     <td style={{ color: 'var(--text-secondary)', maxWidth: '320px' }}>
                       <span

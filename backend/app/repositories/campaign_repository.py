@@ -22,6 +22,8 @@ def compute_content_fingerprint(
     reply_to: str | None,
     html_content: str,
     plain_text: str | None,
+    receiver_name: str | None = None,
+    receiver_email: str | None = None,
 ) -> str:
     """Compute a deterministic SHA-256 fingerprint from canonical email content."""
     canonical = (
@@ -30,6 +32,8 @@ def compute_content_fingerprint(
         f"from_n:{from_name.strip()}\n"
         f"from_e:{from_email.strip().lower()}\n"
         f"reply:{(reply_to or '').strip().lower()}\n"
+        f"recv_n:{(receiver_name or '').strip()}\n"
+        f"recv_e:{(receiver_email or '').strip().lower()}\n"
         f"html:{html_content.strip()}\n"
         f"text:{(plain_text or '').strip()}"
     )
@@ -41,6 +45,8 @@ def create_campaign(
     name: str,
     description: str | None = None,
     tags: list[str] | None = None,
+    email_account_id: int | None = None,
+    owner_user_id: int | None = None,
 ) -> Campaign:
     campaign = Campaign(
         name=name.strip(),
@@ -48,6 +54,8 @@ def create_campaign(
         tags=tags or [],
         status="draft",
         current_content_version=1,
+        email_account_id=email_account_id,
+        owner_user_id=owner_user_id,
     )
     db.add(campaign)
     return campaign
@@ -65,8 +73,12 @@ def get_campaigns_paginated(
     search: str | None = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
+    owner_user_id: int | None = None,
 ) -> tuple[list[Campaign], int, int]:
     query = select(Campaign).options(selectinload(Campaign.contents))
+
+    if owner_user_id is not None:
+        query = query.where(Campaign.owner_user_id == owner_user_id)
 
     if status and status != "all":
         if status == "inactive":
@@ -111,9 +123,13 @@ def get_campaigns_paginated(
     return items, total, total_pages
 
 
-def get_campaign_status_counts(db: Session) -> dict[str, int]:
+def get_campaign_status_counts(db: Session, owner_user_id: int | None = None) -> dict[str, int]:
     """Calculate exact real counts for campaign tab filters."""
-    rows = db.execute(select(Campaign.status, func.count(Campaign.id)).group_by(Campaign.status)).all()
+    stmt = select(Campaign.status, func.count(Campaign.id))
+    if owner_user_id is not None:
+        stmt = stmt.where(Campaign.owner_user_id == owner_user_id)
+    stmt = stmt.group_by(Campaign.status)
+    rows = db.execute(stmt).all()
     status_map = {row[0]: row[1] for row in rows}
     completed = status_map.get("sent", 0)
     scheduled = status_map.get("scheduled", 0) + status_map.get("sending", 0)
@@ -144,6 +160,8 @@ def save_campaign_content(
     plain_text: str | None,
     editor_mode: str = "html_editor",
     template_id: str | None = None,
+    receiver_name: str | None = None,
+    receiver_email: str | None = None,
 ) -> CampaignContent:
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
@@ -157,6 +175,8 @@ def save_campaign_content(
         reply_to=reply_to,
         html_content=html_content,
         plain_text=plain_text,
+        receiver_name=receiver_name,
+        receiver_email=receiver_email,
     )
 
     # Check latest version
@@ -183,6 +203,8 @@ def save_campaign_content(
         from_name=from_name,
         from_email=from_email,
         reply_to=reply_to,
+        receiver_name=receiver_name,
+        receiver_email=receiver_email,
         html_content=html_content,
         plain_text=plain_text,
     )
@@ -262,6 +284,9 @@ def snapshot_campaign_recipients(
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise ValueError(f"Campaign {campaign_id} not found.")
+
+    if campaign.status in {"sending", "sent", "archived"}:
+        raise ValueError(f"Cannot modify recipients for a campaign in '{campaign.status}' status.")
 
     # Clear prior snapshot for draft campaigns to allow re-selection
     existing_snapshots = list(

@@ -37,6 +37,13 @@ class ContactList(Base):
         nullable=True,
     )
 
+    list_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="custom",
+        server_default="custom",
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
