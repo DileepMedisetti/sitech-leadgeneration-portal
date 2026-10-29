@@ -1,21 +1,20 @@
-
 import React from 'react';
 
 export default function StatusBadge({ status }) {
   const normalized = (status || 'unknown').toLowerCase();
-  
+
   let badgeClass = 'badge-neutral';
-  if (['qualified', 'completed', 'success'].includes(normalized)) {
+  if (['qualified', 'completed', 'success', 'finished', 'sent'].includes(normalized)) {
     badgeClass = 'badge-success';
-  } else if (['needs_review', 'pending', 'warning'].includes(normalized)) {
+  } else if (['needs_review', 'pending', 'warning', 'scheduled', 'paused'].includes(normalized)) {
     badgeClass = 'badge-warning';
-  } else if (['rejected', 'failed', 'danger'].includes(normalized)) {
+  } else if (['rejected', 'failed', 'danger', 'aborted'].includes(normalized)) {
     badgeClass = 'badge-danger';
-  } else if (['running', 'processed', 'info'].includes(normalized)) {
+  } else if (['running', 'processed', 'info', 'sending'].includes(normalized)) {
     badgeClass = 'badge-info';
   }
 
-  const label = normalized.replace('_', ' ');
+  const label = normalized.replace(/_/g, ' ');
 
   return (
     <span className={`badge ${badgeClass}`}>
@@ -26,9 +25,11 @@ export default function StatusBadge({ status }) {
           borderRadius: '50%',
           backgroundColor: 'currentColor',
           display: 'inline-block',
+          flexShrink: 0,
         }}
+        aria-hidden="true"
       />
-      {label}
+      <span>{label}</span>
     </span>
   );
 }

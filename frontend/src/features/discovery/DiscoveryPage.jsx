@@ -72,7 +72,7 @@ export default function DiscoveryPage({ onNavigate }) {
       <div className="card">
         <div className="card-header">
           <span className="card-title">
-            <Compass size={18} color="var(--text-primary)" />
+            <Compass size={18} color="var(--primary)" />
             Targeted Academic Lead Discovery
           </span>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -81,7 +81,7 @@ export default function DiscoveryPage({ onNavigate }) {
         </div>
 
         {error && (
-          <div style={{ padding: '12px 16px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', marginBottom: '16px', fontSize: '13px' }}>
+          <div className="alert-banner alert-banner-danger" style={{ marginBottom: '16px' }}>
             {error}
           </div>
         )}
@@ -114,7 +114,7 @@ export default function DiscoveryPage({ onNavigate }) {
             </div>
 
             {selectedJob && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', backgroundColor: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-md)', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', backgroundColor: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-md)', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
                 <div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Qualified Leads</div>
                   <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -176,9 +176,9 @@ export default function DiscoveryPage({ onNavigate }) {
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                <Shield size={14} color="var(--text-primary)" />
+                <Shield size={14} color="var(--primary)" />
                 <span>Deterministic query cache prevents duplicate API credit consumption</span>
               </div>
 
@@ -197,28 +197,28 @@ export default function DiscoveryPage({ onNavigate }) {
 
       {/* Discovery Outcome Card */}
       {result && (
-        <div className="card" style={{ borderLeft: '4px solid #18181b', backgroundColor: 'var(--bg-subtle)' }}>
+        <div className="card" style={{ borderLeft: '4px solid var(--primary)', backgroundColor: 'var(--bg-card)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <CheckCircle2 size={18} color="var(--text-primary)" />
+            <CheckCircle2 size={18} color="var(--success)" />
             <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '15px' }}>
               Discovery Batch Executed Successfully
             </span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', margin: '14px 0', textAlign: 'center' }}>
-            <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
               <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{result.results_received}</div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Raw Results</div>
             </div>
-            <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{result.results_saved}</div>
+            <div style={{ backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--primary)' }}>{result.results_saved}</div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>New Stored URLs</div>
             </div>
-            <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
               <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-secondary)' }}>{result.duplicates_skipped}</div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Duplicates Avoided</div>
             </div>
-            <div style={{ backgroundColor: '#ffffff', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', padding: '10px', borderRadius: 'var(--radius-md)' }}>
               <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {result.was_cached ? '0 (Cached)' : '1 Credit'}
               </div>

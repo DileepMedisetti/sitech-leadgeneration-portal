@@ -39,7 +39,7 @@ export default function SettingsPage() {
       <div className="card">
         <div className="card-header">
           <span className="card-title">
-            <Settings size={18} color="var(--text-primary)" />
+            <Settings size={18} color="var(--primary)" />
             System Configuration & Operational Parameters
           </span>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -51,8 +51,8 @@ export default function SettingsPage() {
         <div
           style={{
             padding: '14px 16px',
-            backgroundColor: 'var(--bg-subtle)',
-            border: '1px solid var(--border-color)',
+            backgroundColor: 'var(--primary-light)',
+            border: '1px solid var(--primary-border)',
             borderRadius: 'var(--radius-md)',
             marginBottom: '20px',
             display: 'flex',
@@ -60,41 +60,41 @@ export default function SettingsPage() {
             gap: '10px',
           }}
         >
-          <ShieldCheck size={18} color="var(--text-primary)" style={{ marginTop: '2px', flexShrink: 0 }} />
-          <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+          <ShieldCheck size={18} color="var(--primary)" style={{ marginTop: '2px', flexShrink: 0 }} />
+          <div style={{ fontSize: '13px', color: 'var(--primary-text)' }}>
             <strong>Security Boundary Protected:</strong> API keys, database credentials, and server secrets are strictly managed via server-side environment variables and are never transmitted to or readable from the frontend application.
           </div>
         </div>
 
         {/* Status Badges */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-          <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: '#ffffff' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+          <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: '#ffffff', boxShadow: 'var(--shadow-xs)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <Database size={16} color="var(--text-primary)" />
-              <span style={{ fontWeight: 600, fontSize: '14px' }}>PostgreSQL Database</span>
+              <Database size={16} color="var(--primary)" />
+              <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>PostgreSQL Database</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-primary)' }}>
-              <CheckCircle2 size={14} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--success-text)' }}>
+              <CheckCircle2 size={14} color="var(--success)" />
               <span>Connected via SQLAlchemy 2.x</span>
             </div>
           </div>
 
-          <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: '#ffffff' }}>
+          <div style={{ padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: '#ffffff', boxShadow: 'var(--shadow-xs)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <Key size={16} color="var(--text-primary)" />
-              <span style={{ fontWeight: 600, fontSize: '14px' }}>SerpApi Service</span>
+              <Key size={16} color="var(--primary)" />
+              <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>SerpApi Service</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-primary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
               {config.serpapi_configured ? (
-                <>
-                  <CheckCircle2 size={14} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success-text)' }}>
+                  <CheckCircle2 size={14} color="var(--success)" />
                   <span>API Key Configured & Ready</span>
-                </>
+                </div>
               ) : (
-                <>
-                  <AlertCircle size={14} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--warning-text)' }}>
+                  <AlertCircle size={14} color="var(--warning)" />
                   <span>API Key Not Configured in .env</span>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -138,11 +138,13 @@ export default function SettingsPage() {
               key={role}
               style={{
                 fontSize: '12px',
-                padding: '4px 10px',
-                backgroundColor: 'var(--bg-app)',
+                fontWeight: 500,
+                padding: '5px 12px',
+                backgroundColor: 'var(--bg-card)',
                 border: '1px solid var(--border-color)',
-                borderRadius: 'var(--radius-md)',
+                borderRadius: '9999px',
                 color: 'var(--text-secondary)',
+                boxShadow: 'var(--shadow-xs)',
               }}
             >
               {role}

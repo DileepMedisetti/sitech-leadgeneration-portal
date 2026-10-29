@@ -67,3 +67,9 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Machine Learning Datasets & Models
+backend/app/data/
+backend/data/
+*.joblib
+*.pkl
