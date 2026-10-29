@@ -266,7 +266,7 @@ export default function TemplatePreviewPage({ templateId, onNavigate }) {
           <iframe
             title={`Preview: ${template.name}`}
             srcDoc={resolvedHtml}
-            sandbox="allow-same-origin"
+            sandbox=""
             style={{
               width: '100%',
               height: device === 'mobile' ? '640px' : '720px',

@@ -1,12 +1,10 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.current_user import get_optional_current_user
 from app.db.database import get_db
 from app.models.campaign import Campaign
-from app.models.user import User
 from app.schemas.campaign_tracking import (
     BouncedMailsResponse,
     BouncedMailsSummary,
@@ -29,14 +27,6 @@ from app.services.campaign_tracking_service import (
 router = APIRouter(prefix="/api/campaign-tracking", tags=["Campaign Tracking"])
 
 
-def _verify_campaign_access(campaign: Campaign, current_user: User | None) -> None:
-    if current_user and campaign.owner_user_id is not None and campaign.owner_user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: You do not have permission to view or manage this campaign.",
-        )
-
-
 @router.get("/campaigns", response_model=CompletedCampaignsListResponse)
 def list_completed_campaigns_endpoint(
     page: int = Query(1, ge=1, description="Page number"),
@@ -45,11 +35,11 @@ def list_completed_campaigns_endpoint(
     status: str | None = Query(None, description="Filter by status: sent, completed, all"),
     start_date: str | None = Query(None, description="Start date filter (ISO format)"),
     end_date: str | None = Query(None, description="End date filter (ISO format)"),
-    current_user: User | None = Depends(get_optional_current_user),
+    current_user = Depends(get_optional_current_user),  # Optional auth; no campaign-owner restriction.
     db: Session = Depends(get_db),
 ):
     """Retrieve completed/sent campaigns with top-level aggregated overview analytics."""
-    owner_id = current_user.id if current_user else None
+    owner_id = None  # Tracking is shared across campaign owners.
     result = get_completed_campaigns_overview(
         db=db,
         page=page,
@@ -66,16 +56,14 @@ def list_completed_campaigns_endpoint(
 @router.get("/campaigns/{campaign_id}/summary", response_model=CampaignTrackingDetailSummary)
 def get_campaign_tracking_summary_endpoint(
     campaign_id: int,
-    current_user: User | None = Depends(get_optional_current_user),
+    current_user = Depends(get_optional_current_user),  # Optional auth; no campaign-owner restriction.
     db: Session = Depends(get_db),
 ):
     """Retrieve detailed metrics for a single campaign including immutable historical bounce rates."""
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
-
-    _verify_campaign_access(campaign, current_user)
-    owner_id = current_user.id if current_user else None
+    owner_id = None  # Tracking is shared across campaign owners.
 
     try:
         return get_campaign_tracking_detail_summary(db=db, campaign_id=campaign_id, owner_user_id=owner_id)
@@ -96,16 +84,14 @@ def get_opened_recipients_endpoint(
     university: str | None = Query(None, description="Filter by university"),
     sort_by: str | None = Query("opened_at", description="Sort field: opened_at, name, email, open_count, click_count"),
     sort_order: str | None = Query("desc", description="Sort order: asc, desc"),
-    current_user: User | None = Depends(get_optional_current_user),
+    current_user = Depends(get_optional_current_user),  # Optional auth; no campaign-owner restriction.
     db: Session = Depends(get_db),
 ):
     """Retrieve paginated recipients who opened emails for the specified campaign."""
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
-
-    _verify_campaign_access(campaign, current_user)
-    owner_id = current_user.id if current_user else None
+    owner_id = None  # Tracking is shared across campaign owners.
 
     return get_campaign_opened_recipients(
         db=db,
@@ -129,16 +115,14 @@ def export_opened_recipients_endpoint(
     country: str | None = Query(None),
     profession: str | None = Query(None),
     university: str | None = Query(None),
-    current_user: User | None = Depends(get_optional_current_user),
+    current_user = Depends(get_optional_current_user),  # Optional auth; no campaign-owner restriction.
     db: Session = Depends(get_db),
 ):
     """Download an Excel (.xlsx) file containing opened email recipients."""
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
-
-    _verify_campaign_access(campaign, current_user)
-    owner_id = current_user.id if current_user else None
+    owner_id = None  # Tracking is shared across campaign owners.
 
     excel_bytes = generate_opened_recipients_excel(
         db=db,
@@ -173,16 +157,14 @@ def get_bounced_mails_endpoint(
     university: str | None = Query(None, description="Filter by university"),
     start_date: str | None = Query(None, description="Filter start date"),
     end_date: str | None = Query(None, description="Filter end date"),
-    current_user: User | None = Depends(get_optional_current_user),
+    current_user = Depends(get_optional_current_user),  # Optional auth; no campaign-owner restriction.
     db: Session = Depends(get_db),
 ):
     """Retrieve active bounced emails with authoritative historical bounce rate and summary."""
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
-
-    _verify_campaign_access(campaign, current_user)
-    owner_id = current_user.id if current_user else None
+    owner_id = None  # Tracking is shared across campaign owners.
 
     return get_campaign_bounced_mails(
         db=db,
@@ -208,16 +190,14 @@ def export_bounced_mails_endpoint(
     country: str | None = Query(None),
     profession: str | None = Query(None),
     university: str | None = Query(None),
-    current_user: User | None = Depends(get_optional_current_user),
+    current_user = Depends(get_optional_current_user),  # Optional auth; no campaign-owner restriction.
     db: Session = Depends(get_db),
 ):
     """Download an Excel (.xlsx) file containing bounced email records."""
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
-
-    _verify_campaign_access(campaign, current_user)
-    owner_id = current_user.id if current_user else None
+    owner_id = None  # Tracking is shared across campaign owners.
 
     excel_bytes = generate_bounced_mails_excel(
         db=db,
@@ -245,7 +225,7 @@ def export_bounced_mails_endpoint(
 def delete_single_bounced_mail_endpoint(
     campaign_id: int,
     record_id: int,
-    current_user: User | None = Depends(get_optional_current_user),
+    current_user = Depends(get_optional_current_user),  # Optional auth; no campaign-owner restriction.
     db: Session = Depends(get_db),
 ):
     """Remove a single bounced mail record from the active listing.
@@ -255,9 +235,7 @@ def delete_single_bounced_mail_endpoint(
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
-
-    _verify_campaign_access(campaign, current_user)
-    owner_id = current_user.id if current_user else None
+    owner_id = None  # Tracking is shared across campaign owners.
 
     try:
         return delete_single_bounced_mail(
@@ -274,7 +252,7 @@ def delete_single_bounced_mail_endpoint(
 def delete_all_bounced_mails_endpoint(
     campaign_id: int,
     bounce_type: str | None = Query(None, description="Optional bounce type to selectively clear"),
-    current_user: User | None = Depends(get_optional_current_user),
+    current_user = Depends(get_optional_current_user),  # Optional auth; no campaign-owner restriction.
     db: Session = Depends(get_db),
 ):
     """Remove active bounced mail records from the listing.
@@ -284,9 +262,7 @@ def delete_all_bounced_mails_endpoint(
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise HTTPException(status_code=404, detail=f"Campaign {campaign_id} not found.")
-
-    _verify_campaign_access(campaign, current_user)
-    owner_id = current_user.id if current_user else None
+    owner_id = None  # Tracking is shared across campaign owners.
 
     return delete_all_bounced_mails(
         db=db,

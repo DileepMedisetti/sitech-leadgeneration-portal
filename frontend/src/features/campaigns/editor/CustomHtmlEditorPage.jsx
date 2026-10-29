@@ -329,7 +329,7 @@ export default function CustomHtmlEditorPage({ onNavigate }) {
                 title="Live HTML email preview"
                 srcDoc={renderPersonalizedText(debouncedHtml, SAMPLE_RECIPIENT)}
                 className="custom-preview-iframe"
-                sandbox="allow-same-origin"
+                sandbox=""
               />
             </div>
           </div>

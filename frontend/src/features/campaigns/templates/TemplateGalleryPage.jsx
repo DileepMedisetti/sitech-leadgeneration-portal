@@ -15,6 +15,7 @@ import {
 } from '../campaignConstants';
 import { getCampaignDraft, saveCampaignDraft } from '../campaignDraftStore';
 import TemplateOptionCards from './TemplateOptionCards';
+import Pagination from '../../../components/ui/Pagination';
 
 export default function TemplateGalleryPage({ onNavigate }) {
   const draft = getCampaignDraft();
@@ -23,6 +24,8 @@ export default function TemplateGalleryPage({ onNavigate }) {
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [selectedTheme, setSelectedTheme] = useState('All Themes');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 9;
   const [toastMessage, setToastMessage] = useState(null);
 
   // Initialize selected template from draft if present, else default to 'product_update'
@@ -98,6 +101,19 @@ export default function TemplateGalleryPage({ onNavigate }) {
       return true;
     });
   }, [templates, selectedCategory, selectedTheme, searchQuery]);
+
+  // Pagination: show 9 filtered templates per page.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, selectedTheme, searchQuery]);
+
+  const totalItems = filteredTemplates.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+  const paginatedTemplates = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredTemplates.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredTemplates, currentPage]);
 
   // Handle template selection
   const handleSelectTemplate = (tpl) => {
@@ -369,7 +385,7 @@ export default function TemplateGalleryPage({ onNavigate }) {
                 <p>No templates found matching your search and filter criteria.</p>
               </div>
             ) : (
-              filteredTemplates.map((tpl) => {
+              paginatedTemplates.map((tpl) => {
                 const isSelected = selectedTemplate && String(selectedTemplate.id) === String(tpl.id);
                 return (
                   <div
@@ -398,6 +414,16 @@ export default function TemplateGalleryPage({ onNavigate }) {
               })
             )}
           </div>
+
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={ITEMS_PER_PAGE}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </div>
 
         {/* ========================================================================= */}
@@ -417,7 +443,7 @@ export default function TemplateGalleryPage({ onNavigate }) {
                 title={`Preview of ${selectedTemplate.name}`}
                 srcDoc={renderPersonalizedText(selectedTemplate.html_content, SAMPLE_RECIPIENT)}
                 className="template-preview-iframe"
-                sandbox="allow-same-origin"
+                sandbox=""
               />
             ) : (
               <div className="template-preview-placeholder">

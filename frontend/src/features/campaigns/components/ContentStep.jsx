@@ -775,7 +775,7 @@ export default function ContentStep({
                     title="Email template preview"
                     srcDoc={renderPersonalizedText(htmlContent, SAMPLE_RECIPIENT)}
                     className="campaign-template-iframe"
-                    sandbox="allow-same-origin"
+                    sandbox=""
                   />
                 </div>
               </div>

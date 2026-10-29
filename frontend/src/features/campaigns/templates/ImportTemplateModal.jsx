@@ -362,7 +362,7 @@ export default function ImportTemplateModal({ isOpen, onClose, onSuccess }) {
               <iframe
                 title="HTML Preview"
                 srcDoc={htmlPreview}
-                sandbox="allow-same-origin"
+                sandbox=""
                 style={{ width: '100%', height: '220px', border: 'none', backgroundColor: '#ffffff' }}
               />
             </div>

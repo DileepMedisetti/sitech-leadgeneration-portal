@@ -436,9 +436,6 @@ def get_campaign_replies(
     if not campaign:
         raise ValueError(f"Campaign {campaign_id} not found.")
 
-    if owner_user_id is not None and campaign.owner_user_id is not None and campaign.owner_user_id != owner_user_id:
-        raise PermissionError("Access denied: You do not have permission to view replies for this campaign.")
-
     replies = list(
         db.scalars(
             select(CampaignReply)
@@ -804,13 +801,15 @@ def get_campaign_tracking_detail_summary(
     campaign_id: int,
     owner_user_id: int | None = None,
 ) -> dict[str, Any]:
-    """Computes comprehensive campaign tracking summary metrics including immutable historical bounce metrics."""
+    """Compute tracking metrics for any existing campaign, regardless of its owner.
+
+    ``owner_user_id`` is retained for backward compatibility; tracking access is
+    intentionally not restricted by campaign ownership. Historical bounce metrics
+    remain independent of whether active bounce rows have been deleted.
+    """
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise ValueError(f"Campaign {campaign_id} not found.")
-
-    if owner_user_id is not None and campaign.owner_user_id is not None and campaign.owner_user_id != owner_user_id:
-        raise PermissionError("Access denied: You do not have permission to view tracking for this campaign.")
 
     latest_content = None
     if campaign.contents:
@@ -914,16 +913,17 @@ def get_campaign_opened_recipients(
     sort_order: str | None = "desc",
     owner_user_id: int | None = None,
 ) -> dict[str, Any]:
-    """Retrieves paginated recipients who opened emails for the campaign, with lead attributes and filtering."""
+    """Retrieve opened recipients for any existing campaign, with filtering.
+
+    ``owner_user_id`` is retained for backward compatibility and is not used
+    to restrict tracking visibility by campaign ownership.
+    """
     page = max(1, page)
     page_size = max(1, min(100, page_size))
 
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise ValueError(f"Campaign {campaign_id} not found.")
-
-    if owner_user_id is not None and campaign.owner_user_id is not None and campaign.owner_user_id != owner_user_id:
-        raise PermissionError("Access denied: You do not have permission to view opened recipients for this campaign.")
 
     base_filter = [
         CampaignRecipientSnapshot.campaign_id == campaign_id,
@@ -1029,16 +1029,18 @@ def get_campaign_bounced_mails(
     end_date: str | None = None,
     owner_user_id: int | None = None,
 ) -> dict[str, Any]:
-    """Retrieves paginated active bounced emails for a campaign with authoritative historical bounce summary."""
+    """Retrieve active bounced emails for any existing campaign.
+
+    ``owner_user_id`` is retained for backward compatibility and is not used
+    to restrict tracking visibility by campaign ownership. Historical bounce
+    summary metrics remain immutable when active bounce rows are deleted.
+    """
     page = max(1, page)
     page_size = max(1, min(100, page_size))
 
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise ValueError(f"Campaign {campaign_id} not found.")
-
-    if owner_user_id is not None and campaign.owner_user_id is not None and campaign.owner_user_id != owner_user_id:
-        raise PermissionError("Access denied: You do not have permission to view bounced mails for this campaign.")
 
     # IMMUTABLE HISTORICAL SUMMARY:
     # Query all historical bounced snapshots regardless of is_bounce_listing_deleted
@@ -1212,9 +1214,6 @@ def delete_single_bounced_mail(
     if not campaign:
         raise ValueError(f"Campaign {campaign_id} not found.")
 
-    if owner_user_id is not None and campaign.owner_user_id is not None and campaign.owner_user_id != owner_user_id:
-        raise PermissionError("Access denied: You do not have permission to modify this campaign.")
-
     snapshot = db.scalar(
         select(CampaignRecipientSnapshot).where(
             CampaignRecipientSnapshot.id == record_id,
@@ -1264,9 +1263,6 @@ def delete_all_bounced_mails(
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         raise ValueError(f"Campaign {campaign_id} not found.")
-
-    if owner_user_id is not None and campaign.owner_user_id is not None and campaign.owner_user_id != owner_user_id:
-        raise PermissionError("Access denied: You do not have permission to modify this campaign.")
 
     query = select(CampaignRecipientSnapshot).where(
         CampaignRecipientSnapshot.campaign_id == campaign_id,
